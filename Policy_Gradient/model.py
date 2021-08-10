@@ -1,4 +1,4 @@
-from tensorflow.keras import models, layers, optimizers
+from tensorflow.keras import models, layers, optimizers, losses
 import numpy as np
 
 class Policy_Gradient():
@@ -17,7 +17,6 @@ class Policy_Gradient():
             layers.Dense(units=self.action_dim, input_dim=self.hidden_dim, activation="softmax")
         ])
         opt = optimizers.Adam(learning_rate=self.lr)
-        optimizers.SGD()
         policy_net.compile(loss="categorical_crossentropy", optimizer=opt)
         return policy_net
 
@@ -35,7 +34,7 @@ class Policy_Gradient():
         episode_index = np.arange(episode_length)
         episode_action = np.array(self.action_list)
         y[episode_index, episode_action] = discount_rewards
-        self.policy_net.fit(x, y, epochs=1, verbose=1)
+        self.policy_net.fit(x, y, verbose=0)
         self.state_list, self.action_list, self.reward_list = [], [], []
 
     def store_data(self, state, action, reward):

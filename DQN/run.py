@@ -40,7 +40,7 @@ def run():
                 env.render()
             action = DQN_model.choose_action(s_cur)
             s_pre = s_cur
-            s_cur, _, done, _ = env.step(action)
+            s_cur, reward, done, _ = env.step(action)
             x, x_dot, theta, theta_dot = s_cur
             pre_x, _, pre_theta, _ = s_pre
             r1 = (env.x_threshold - abs(x)) / env.x_threshold - 0.8

@@ -74,7 +74,7 @@ class DQN():
         self.learn_step_counter += 1
         if self.learn_step_counter % self.update_frequency == 0:
             self._update_param()
-        self.epsilon = self.epsilon + self.epsilon_increment if self.epsilon < self.epsilon_max else self.epsilon_max
+        self.epsilon = min(self.epsilon + self.epsilon_increment, self.epsilon_max)
         return loss
 
 

@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser("various versions of DQN")
 parser.add_argument("--render", action="store_true")
-parser.add_argument("--lr", type=float, default=0.01)
+parser.add_argument("--lr", type=float, default=0.001)
 parser.add_argument("--gamma", type=float, default=0.9)
-parser.add_argument("--episodes", type=int, default=10000)
-parser.add_argument("--hidden_dim", type=int, default=10)
+parser.add_argument("--episodes", type=int, default=100000)
+parser.add_argument("--hidden_dim", type=int, default=5)
 args = parser.parse_args()
 
 def get_env(env_id):
@@ -24,7 +24,6 @@ def run():
     env, state_dim, action_dim = get_env("CartPole-v0")
     PG_model = model.Policy_Gradient(state_dim, action_dim, args.lr, args.gamma, args.hidden_dim)
     reward_list = []
-    total_step = 0
     for i in range(args.episodes):
         start_time = time.time()
         s_cur = env.reset()
@@ -34,19 +33,21 @@ def run():
                 env.render()
             action = PG_model.choose_action(s_cur)
             s_pre = s_cur
-            s_cur, _, done, _ = env.step(action)
+            s_cur, reward, done, _ = env.step(action)
             x, x_dot, theta, theta_dot = s_cur
             pre_x, _, pre_theta, _ = s_pre
             r1 = (env.x_threshold - abs(x)) / env.x_threshold - 0.8
             r2 = (env.theta_threshold_radians - abs(theta)) / env.theta_threshold_radians - 0.5
             reward = r1 + r2
-            if abs(theta) < abs(pre_theta):
-                reward += 0.5
-            if theta * pre_theta < 0:
-                reward += 1
+            # if abs(theta) < abs(pre_theta):
+            #     reward += 0.5
+            # else:
+            #     reward -= 0.5
+            # if theta * pre_theta < 0:
+            #     reward += 1
+            # reward *= 0.1
             PG_model.store_data(s_pre, action, reward)
             reward_sum += reward
-            total_step += 1
             if done:
                 break
         PG_model.learn()
