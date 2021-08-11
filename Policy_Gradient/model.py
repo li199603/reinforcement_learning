@@ -1,6 +1,9 @@
+from tensorflow import keras
 from tensorflow.keras import models, layers, optimizers, losses
 import numpy as np
+import tensorflow as tf
 
+tf.keras.backend.set_floatx('float64')
 class Policy_Gradient():
     def __init__(self, state_dim, action_dim, lr, gamma, hidden_dim):
         self.action_dim = action_dim
@@ -22,7 +25,7 @@ class Policy_Gradient():
 
     def choose_action(self, s):
         s = s[np.newaxis, :]
-        prob = self.policy_net.predict(s).flatten()
+        prob = self.policy_net(s).numpy().flatten()
         action = np.random.choice(self.action_dim, 1, p=prob)[0]
         return action
 
@@ -59,3 +62,37 @@ class Policy_Gradient():
 
     def load(self, path):
         pass
+
+
+class Policy_Gradient_2(Policy_Gradient):
+    def __init__(self, state_dim, action_dim, lr, gamma, hidden_dim):
+        Policy_Gradient.__init__(self, state_dim, action_dim, lr, gamma, hidden_dim)
+        self.opt = optimizers.Adam(self.lr)
+    
+    def _build_net(self):
+        policy_net = models.Sequential([
+            layers.Dense(units=self.hidden_dim, input_dim=self.state_dim, activation="relu"),
+            layers.Dense(units=self.action_dim, input_dim=self.hidden_dim, activation="softmax")
+        ])
+        return policy_net
+
+    def choose_action(self, s):
+        s = s[np.newaxis, :]
+        prob = self.policy_net(s).numpy().flatten()
+        action = np.random.choice(self.action_dim, 1, p=prob)[0]
+        return action
+    
+    def learn(self):
+        episode_state = np.vstack(self.state_list)
+        episode_action = np.array(self.action_list)
+        discount_rewards = self._discount_and_norm_rewards()
+        with tf.GradientTape() as tape:
+            episode_action_prob = self.policy_net(episode_state)
+            cross_entropy = tf.losses.sparse_categorical_crossentropy(y_true=episode_action,
+                                                                      y_pred=episode_action_prob)
+            loss = tf.reduce_mean(cross_entropy * discount_rewards)
+        grads = tape.gradient(loss, self.policy_net.trainable_variables)
+        self.opt.apply_gradients(zip(grads, self.policy_net.trainable_variables))
+        self.state_list, self.action_list, self.reward_list = [], [], []
+    
+        
