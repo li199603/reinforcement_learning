@@ -10,8 +10,8 @@ parser = argparse.ArgumentParser("Policy Gradient")
 parser.add_argument("--render", action="store_true")
 parser.add_argument("--lr", type=float, default=0.001)
 parser.add_argument("--gamma", type=float, default=0.95)
-parser.add_argument("--episodes", type=int, default=2000)
-parser.add_argument("--hidden_dim", type=int, default=5)
+parser.add_argument("--episodes", type=int, default=3000)
+parser.add_argument("--hidden_dim", type=int, default=10)
 args = parser.parse_args()
 
 AGGREGATE_STATS_EVERY = 50
@@ -26,7 +26,7 @@ def get_env(env_id):
 
 def run():
     env, state_dim, action_dim = get_env("CartPole-v0")
-    PG_model = model.Policy_Gradient_two_models(state_dim, action_dim, args.lr, args.gamma, args.hidden_dim)
+    PG_model = model.Policy_Gradient(state_dim, action_dim, args.lr, args.gamma, args.hidden_dim)
     ep_rewards = []
     aggr_ep_rewards = {'ep':[],'avg':[],'min':[],'max':[]}
     for i in tqdm.trange(1, args.episodes+1, ascii=True, unit='episodes'):
