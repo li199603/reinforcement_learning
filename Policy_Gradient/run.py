@@ -26,7 +26,7 @@ def get_env(env_id):
 
 def run():
     env, state_dim, action_dim = get_env("CartPole-v0")
-    PG_model = model.Policy_Gradient_2(state_dim, action_dim, args.lr, args.gamma, args.hidden_dim)
+    PG_model = model.Policy_Gradient_3(state_dim, action_dim, args.lr, args.gamma, args.hidden_dim)
     ep_rewards = []
     aggr_ep_rewards = {'ep':[],'avg':[],'min':[],'max':[]}
     for i in tqdm.trange(1, args.episodes+1, ascii=True, unit='episodes'):
