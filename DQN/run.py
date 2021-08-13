@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import tqdm
 
 parser = argparse.ArgumentParser("various versions of DQN")
+# parser.add_argument("--model", type=str)
 parser.add_argument("--render", action="store_true")
 parser.add_argument("--lr", type=float, default=0.01)
 parser.add_argument("--gamma", type=float, default=0.9)
@@ -29,7 +30,7 @@ def get_env(env_id):
 
 def run():
     env, state_dim, action_dim = get_env("CartPole-v0")
-    DQN_model = model.DQN(state_dim, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
+    DQN_model = model.Dueling_DQN(state_dim, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
                           args.buffer_size, args.batch_size, args.update_frequency, args.epsilon_increment)
     ep_rewards = []
     aggr_ep_rewards = {'ep':[],'avg':[],'min':[],'max':[]}
@@ -57,10 +58,10 @@ def run():
             if done:
                 break
         ep_rewards.append(reward_sum)
-        if i % AGGREGATE_STATS_EVERY == 0 or i == 1:
-            average_reward = sum(ep_rewards[-AGGREGATE_STATS_EVERY:])/len(ep_rewards[-AGGREGATE_STATS_EVERY:])
-            min_reward = min(ep_rewards[-AGGREGATE_STATS_EVERY:])
-            max_reward = max(ep_rewards[-AGGREGATE_STATS_EVERY:])
+        if i % args.aggregate_step == 0 or i == 1:
+            average_reward = sum(ep_rewards[-args.aggregate_step:])/len(ep_rewards[-args.aggregate_step:])
+            min_reward = min(ep_rewards[-args.aggregate_step:])
+            max_reward = max(ep_rewards[-args.aggregate_step:])
             aggr_ep_rewards['ep'].append(i)
             aggr_ep_rewards['avg'].append(average_reward)
             aggr_ep_rewards['min'].append(min_reward)

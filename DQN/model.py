@@ -1,5 +1,7 @@
-from tensorflow.keras import models, layers, optimizers
+from tensorflow.keras import models, layers, optimizers, Model
+import tensorflow as tf
 import numpy as np
+
 
 class DQN():
     def __init__(self, state_dim, action_dim, lr, gamma, epsilon_max,
@@ -21,7 +23,7 @@ class DQN():
         self.learn_step_counter = 0
         self.policy_net = self._build_net()
         self.target_net = self._build_net()
-        self._update_param(self)
+        self._update_param()
         opt = optimizers.Adam(learning_rate=self.lr)
         self.policy_net.compile(loss="mse", optimizer=opt)
         
@@ -85,3 +87,15 @@ class DQN():
 
     def load(self, path):
         pass
+
+
+class Dueling_DQN(DQN):
+    def _build_net(self):
+        # input = layers.InputLayer((self.state_dim,))
+        x = tf.keras.Input((self.state_dim,))
+        a = layers.Dense(units=self.hidden_dim, activation="relu")(x)
+        state_value = layers.Dense(units=1, activation="relu")(a)
+        action_advantage = layers.Dense(units=self.action_dim, input_dim=self.hidden_dim, activation="relu")(a)
+        y = state_value + (action_advantage - tf.reduce_mean(action_advantage, keepdims=True))
+        net = Model(inputs=x, outputs=y)
+        return net
