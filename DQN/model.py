@@ -19,23 +19,19 @@ class DQN():
         self.buffer = np.zeros((self.buffer_size, self.state_dim*2+2))
         self.buffer_counter = 0
         self.learn_step_counter = 0
-        self.policy_net, self.target_net = self._build_net()
+        self.policy_net = self._build_net()
+        self.target_net = self._build_net()
+        self._update_param(self)
+        opt = optimizers.Adam(learning_rate=self.lr)
+        self.policy_net.compile(loss="mse", optimizer=opt)
+        
 
     def _build_net(self):
-        # ------ 构造策略网络 ------
-        policy_net = models.Sequential([
+        net = models.Sequential([
             layers.Dense(units=self.hidden_dim, input_dim=self.state_dim, activation="relu"),
             layers.Dense(units=self.action_dim, input_dim=self.hidden_dim)
         ])
-        opt = optimizers.Adam(learning_rate=self.lr)
-        policy_net.compile(loss="mse", optimizer=opt)
-
-        # ------ 构造目标网络 ------
-        target_net = models.Sequential([
-            layers.Dense(units=self.hidden_dim, input_dim=self.state_dim, activation="relu"),
-            layers.Dense(units=self.action_dim, input_dim=self.hidden_dim)
-        ])
-        return policy_net, target_net
+        return net
 
     def choose_action(self, s):
         s = s[np.newaxis, :]
