@@ -1,5 +1,7 @@
-from tensorflow.keras import models, layers, optimizers
+from tensorflow.keras import models, layers, optimizers, Model
+import tensorflow as tf
 import numpy as np
+
 
 class DQN():
     def __init__(self, state_dim, action_dim, lr, gamma, epsilon_max,
@@ -19,23 +21,19 @@ class DQN():
         self.buffer = np.zeros((self.buffer_size, self.state_dim*2+2))
         self.buffer_counter = 0
         self.learn_step_counter = 0
-        self.policy_net, self.target_net = self._build_net()
+        self.policy_net = self._build_net()
+        self.target_net = self._build_net()
+        self._update_param()
+        opt = optimizers.Adam(learning_rate=self.lr)
+        self.policy_net.compile(loss="mse", optimizer=opt)
+        
 
     def _build_net(self):
-        # ------ 构造策略网络 ------
-        policy_net = models.Sequential([
+        net = models.Sequential([
             layers.Dense(units=self.hidden_dim, input_dim=self.state_dim, activation="relu"),
             layers.Dense(units=self.action_dim, input_dim=self.hidden_dim)
         ])
-        opt = optimizers.Adam(learning_rate=self.lr)
-        policy_net.compile(loss="mse", optimizer=opt)
-
-        # ------ 构造目标网络 ------
-        target_net = models.Sequential([
-            layers.Dense(units=self.hidden_dim, input_dim=self.state_dim, activation="relu"),
-            layers.Dense(units=self.action_dim, input_dim=self.hidden_dim)
-        ])
-        return policy_net, target_net
+        return net
 
     def choose_action(self, s):
         s = s[np.newaxis, :]
@@ -43,10 +41,6 @@ class DQN():
             q_values = self.policy_net.predict(s).reshape([self.action_dim])
             max_q = np.max(q_values)
             action = np.random.choice(np.where(q_values == max_q)[0])
-            _action = np.argmax(q_values)
-            if _action != action:
-                print("_action != action")
-                print(action)
         else:
             action = np.random.choice(self.action_dim)
         return action
@@ -89,3 +83,14 @@ class DQN():
 
     def load(self, path):
         pass
+
+
+class Dueling_DQN(DQN):
+    def _build_net(self):
+        x = tf.keras.Input((self.state_dim,))
+        a = layers.Dense(units=self.hidden_dim, activation="relu")(x)
+        state_value = layers.Dense(units=1, activation="tanh")(a)
+        action_advantage = layers.Dense(units=self.action_dim, activation="linear")(a)
+        y = state_value + (action_advantage - tf.reduce_mean(action_advantage, keepdims=True))
+        net = Model(inputs=x, outputs=y)
+        return net
