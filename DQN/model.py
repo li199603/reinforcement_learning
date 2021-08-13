@@ -41,10 +41,6 @@ class DQN():
             q_values = self.policy_net.predict(s).reshape([self.action_dim])
             max_q = np.max(q_values)
             action = np.random.choice(np.where(q_values == max_q)[0])
-            _action = np.argmax(q_values)
-            if _action != action:
-                print("_action != action")
-                print(action)
         else:
             action = np.random.choice(self.action_dim)
         return action
@@ -91,11 +87,10 @@ class DQN():
 
 class Dueling_DQN(DQN):
     def _build_net(self):
-        # input = layers.InputLayer((self.state_dim,))
         x = tf.keras.Input((self.state_dim,))
         a = layers.Dense(units=self.hidden_dim, activation="relu")(x)
-        state_value = layers.Dense(units=1, activation="relu")(a)
-        action_advantage = layers.Dense(units=self.action_dim, input_dim=self.hidden_dim, activation="relu")(a)
+        state_value = layers.Dense(units=1, activation="tanh")(a)
+        action_advantage = layers.Dense(units=self.action_dim, activation="linear")(a)
         y = state_value + (action_advantage - tf.reduce_mean(action_advantage, keepdims=True))
         net = Model(inputs=x, outputs=y)
         return net
