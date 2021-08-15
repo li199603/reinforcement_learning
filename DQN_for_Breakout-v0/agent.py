@@ -88,10 +88,10 @@ class DQN():
         self.buffer_counter += 1
 
     def save(self, path):
-        pass
+        self.policy_net.save_weights(path)
 
     def load(self, path):
-        pass
+        self.policy_net.load_weights(path)
 
 
 class Dueling_DQN(DQN):
