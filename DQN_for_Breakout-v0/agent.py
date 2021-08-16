@@ -2,7 +2,15 @@ from tensorflow.keras import models, layers, optimizers, Model
 import tensorflow as tf
 import numpy as np
 from tensorflow.python.keras.engine.input_layer import InputLayer
+import time
 
+def print_run_time(func):  
+    def wrapper(*args, **kw):  
+        local_time = time.time()  
+        res = func(*args, **kw) 
+        print("current Function [%s] run time is %.2f" % (func.__name__ ,time.time() - local_time))
+        return res 
+    return wrapper 
 
 class DQN():
     def __init__(self, featrue_shape, action_dim, lr, gamma, epsilon_max,
@@ -44,6 +52,7 @@ class DQN():
         ])
         return net
 
+    # @print_run_time
     def choose_action(self, s):
         s = s[np.newaxis, :, :, np.newaxis]
         if np.random.uniform() < self.epsilon:
@@ -54,9 +63,11 @@ class DQN():
             action = np.random.choice(self.action_dim)
         return action
 
+    # @print_run_time
     def _update_param(self):
         self.target_net.set_weights(self.policy_net.get_weights())
 
+    # @print_run_time
     def learn(self):
         if self.buffer_counter < self.batch_size:
             return
@@ -78,7 +89,7 @@ class DQN():
         self.epsilon = min(self.epsilon + self.epsilon_increment, self.epsilon_max)
         return loss
 
-
+    # @print_run_time
     def store_data(self, s_pre, action, reward, s_cur):
         index = self.buffer_counter % self.buffer_size
         self.buffer_s_pre[index, :] = s_pre[:, :, np.newaxis]
