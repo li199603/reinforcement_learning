@@ -13,11 +13,11 @@ def print_run_time(func):
     return wrapper 
 
 class DQN():
-    def __init__(self, featrue_shape, action_dim, lr, gamma, epsilon_max,
+    def __init__(self, featrue_dim, action_dim, lr, gamma, epsilon_max,
                  hidden_dim, buffer_size, batch_size, update_frequency,
                  epsilon_increment):
         self.action_dim = action_dim
-        self.featrue_shape = featrue_shape
+        self.featrue_dim = featrue_dim
         self.lr = lr
         self.gamma = gamma
         self.epsilon_max = epsilon_max
@@ -27,8 +27,8 @@ class DQN():
         self.buffer_size = buffer_size
         self.batch_size = batch_size
         self.update_frequency = update_frequency
-        self.buffer_s_pre = np.zeros((self.buffer_size, self.featrue_shape[0], self.featrue_shape[1], 1))
-        self.buffer_s_cur = np.zeros((self.buffer_size, self.featrue_shape[0], self.featrue_shape[1], 1))
+        self.buffer_s_pre = np.zeros((self.buffer_size, ) + self.featrue_dim)
+        self.buffer_s_cur = np.zeros((self.buffer_size, ) + self.featrue_dim)
         self.buffer_action = np.zeros((self.buffer_size, ))
         self.buffer_reward = np.zeros((self.buffer_size, ))
         self.buffer_counter = 0
@@ -42,8 +42,8 @@ class DQN():
 
     def _build_net(self):
         net = models.Sequential([
-            layers.InputLayer(input_shape=(self.featrue_shape[0], self.featrue_shape[1], 1)),
-            # layers.Conv2D(32, (10, 10), input_shape=(self.featrue_shape[0], self.featrue_shape[1], 1), activation='relu'),
+            layers.InputLayer(self.featrue_dim),
+            # layers.Conv2D(32, (10, 10), activation='relu'),
             # layers.Conv2D(8, (5, 5), activation='relu'),
             # layers.MaxPool2D(pool_size=(5, 5)),
             layers.Flatten(),
@@ -53,10 +53,10 @@ class DQN():
         return net
 
     # @print_run_time
-    def choose_action(self, s):
-        s = s[np.newaxis, :, :, np.newaxis]
+    def choose_action(self, state):
+        state = np.expand_dims(state, 0)
         if np.random.uniform() < self.epsilon:
-            q_values = self.policy_net(s).numpy().reshape([self.action_dim])
+            q_values = self.policy_net(state).numpy().reshape([self.action_dim])
             max_q = np.max(q_values)
             action = np.random.choice(np.where(q_values == max_q)[0])
         else:
@@ -92,10 +92,10 @@ class DQN():
     # @print_run_time
     def store_data(self, s_pre, action, reward, s_cur):
         index = self.buffer_counter % self.buffer_size
-        self.buffer_s_pre[index, :] = s_pre[:, :, np.newaxis]
+        self.buffer_s_pre[index] = s_pre
         self.buffer_action[index] = action
         self.buffer_reward[index] = reward
-        self.buffer_s_cur[index, :] = s_cur[:, :, np.newaxis]
+        self.buffer_s_cur[index] = s_cur
         self.buffer_counter += 1
 
     def save(self, path):

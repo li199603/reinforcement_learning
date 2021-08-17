@@ -10,8 +10,8 @@ parser = argparse.ArgumentParser("Ues DQN play Breakout-v0")
 parser.add_argument("--render", action="store_true")
 parser.add_argument("--lr", type=float, default=0.001)
 parser.add_argument("--gamma", type=float, default=0.9)
-parser.add_argument("--episodes", type=int, default=100)
-parser.add_argument("--epsilon", type=float, default=0.9)
+parser.add_argument("--episodes", type=int, default=5)
+parser.add_argument("--epsilon", type=float, default=0.85)
 parser.add_argument("--hidden_dim", type=int, default=50)
 parser.add_argument("--buffer_size", type=int, default=1000)
 parser.add_argument("--batch_size", type=int, default=32)
@@ -27,10 +27,9 @@ WIDTH_RANGE = [8, 151]
 
 def train():
     env = enviroment.Env_Breakout(HEIGHT_RANGE, WIDTH_RANGE)
-    featrue_shape = [HEIGHT_RANGE[1]-HEIGHT_RANGE[0]+1, WIDTH_RANGE[1]-WIDTH_RANGE[0]+1]
+    featrue_dim = env.get_featrues_dim()
     action_dim = env.get_action_dim()
-    print(action_dim)
-    agt = agent.DQN(featrue_shape, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
+    agt = agent.DQN(featrue_dim, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
                     args.buffer_size, args.batch_size, args.update_frequency, args.epsilon_increment)
     ep_rewards = []
     aggr_ep_rewards = {'ep':[],'avg':[],'min':[],'max':[]}
@@ -56,11 +55,13 @@ def train():
             aggr_ep_rewards['ep'].append(i)
             aggr_ep_rewards['avg'].append(average_reward)
             aggr_ep_rewards['min'].append(min_reward)
-            aggr_ep_rewards['max'].append(max_reward)   
+            aggr_ep_rewards['max'].append(max_reward)
+        if i % 50 == 0:
+            cur_time = time.strftime("%Y-%m-%d-%Hh%Mm%Ss", time.localtime()) 
+            agt.save("DQN_for_Breakout-v0\checkpoints\\" + cur_time + ".h5")
 
     env.close()
-    cur_time = time.strftime("%Y-%m-%d-%Hh%Mm%Ss", time.localtime()) 
-    agt.save("DQN_for_Breakout-v0\checkpoints\\" + cur_time + ".h5")
+
 
     plt.plot(aggr_ep_rewards['ep'], aggr_ep_rewards['avg'], label = 'avg')
     plt.plot(aggr_ep_rewards['ep'], aggr_ep_rewards['min'], label = 'min')
@@ -75,6 +76,7 @@ def train():
         done = False
         while not done:
             action = agt.choose_action(state)
+            print(action)
             next_state, _, done, _ = env.step(action)
             state = next_state
             env.render()
@@ -86,6 +88,25 @@ def train():
 
 if __name__ == "__main__":
     train()
+    
+    # env = enviroment.Env_Breakout(HEIGHT_RANGE, WIDTH_RANGE)
+    # featrue_dim = env.get_featrues_dim()
+    # action_dim = env.get_action_dim()
+    # agt = agent.DQN(featrue_dim, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
+    #                 args.buffer_size, args.batch_size, args.update_frequency, args.epsilon_increment)
+    # agt.load(r"DQN_for_Breakout-v0\checkpoints\2021-08-17-03h46m17s.h5")
+    # for i in range(5):
+    #     state = env.reset()
+    #     done = False
+    #     while not done:
+    #         action = agt.choose_action(state)
+    #         next_state, _, done, _ = env.step(action)
+    #         state = next_state
+    #         env.render()
+
+
+    # env.close()
+    
 
 
 
