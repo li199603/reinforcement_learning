@@ -123,8 +123,7 @@ class DQN_2():
             layers.Dense(units=self.action_dim)
         ])
         return net
-
-    # @print_run_time
+    
     def choose_action(self, state):
         state = np.expand_dims(state, 0)
         if np.random.uniform() < self.epsilon:
@@ -135,17 +134,17 @@ class DQN_2():
             action = np.random.choice(self.action_dim)
         return action
 
-    # @print_run_time
+
     def _update_param(self):
         self.target_net.set_weights(self.policy_net.get_weights())
 
-    # @print_run_time
+
     def learn(self):
         if self.buffer_counter < self.batch_size:
             return
         sample_index = np.random.choice(min(self.buffer_size, self.buffer_counter), size=self.batch_size)
         batch_q_cur = self.target_net(self.buffer_s_cur[sample_index]).numpy()
-        batch_q_pre = self.target_net(self.buffer_s_pre[sample_index]).numpy()
+        batch_q_pre = self.policy_net(self.buffer_s_pre[sample_index]).numpy()
         batch_action = self.buffer_action[sample_index].astype(int)
         batch_reward = self.buffer_reward[sample_index]
         
@@ -161,7 +160,7 @@ class DQN_2():
         self.epsilon = min(self.epsilon + self.epsilon_increment, self.epsilon_max)
         return loss
 
-    # @print_run_time
+
     def store_data(self, s_pre, action, reward, s_cur):
         index = self.buffer_counter % self.buffer_size
         self.buffer_s_pre[index] = s_pre

@@ -9,7 +9,7 @@ parser.add_argument("--model", type=str, default="DQN")
 parser.add_argument("--render", action="store_true")
 parser.add_argument("--lr", type=float, default=0.01)
 parser.add_argument("--gamma", type=float, default=0.9)
-parser.add_argument("--episodes", type=int, default=100)
+parser.add_argument("--episodes", type=int, default=30)
 parser.add_argument("--epsilon", type=float, default=0.9)
 parser.add_argument("--hidden_dim", type=int, default=10)
 parser.add_argument("--buffer_size", type=int, default=1000)
@@ -30,7 +30,7 @@ def get_env(env_id):
 def run():
     env, state_dim, action_dim = get_env("CartPole-v0")
     if args.model == "DQN":
-        DQN_model = model.DQN(state_dim, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
+        DQN_model = model.DQN_2(state_dim, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
                               args.buffer_size, args.batch_size, args.update_frequency, args.epsilon_increment)
     elif args.model == "Dueling_DQN":
         DQN_model = model.Dueling_DQN(state_dim, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
@@ -40,7 +40,7 @@ def run():
         return
     ep_rewards = []
     aggr_ep_rewards = {'ep':[],'avg':[],'min':[],'max':[]}
-    for i in range(args.episodes):
+    for i in range(1, args.episodes+1):
         start_time = time.time()
         s_cur = env.reset()
         total_reward = 0
@@ -74,7 +74,7 @@ def run():
             aggr_ep_rewards['min'].append(min_reward)
             aggr_ep_rewards['max'].append(max_reward)
         end_time = time.time()
-        print("Episode [%2d / %d]\tTotal eward: %.2f\tPlay time: %.2fs" % (i, args.episodes, total_reward, end_time-start_time))
+        print("Episode [%2d / %d]\tTotal reward: %.2f\tPlay time: %.2fs" % (i, args.episodes, total_reward, end_time-start_time))
 
     env.close()
 
