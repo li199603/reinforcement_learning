@@ -16,7 +16,7 @@ parser.add_argument("--buffer_size", type=int, default=1000)
 parser.add_argument("--batch_size", type=int, default=32)
 parser.add_argument("--update_frequency", type=int, default=100)
 parser.add_argument("--epsilon_increment", type=float, default=0.001)
-parser.add_argument("--aggregate_step", type=int, default=50)
+parser.add_argument("--aggregate_step", type=int, default=5)
 args = parser.parse_args()
 
 def get_env(env_id):
@@ -87,6 +87,7 @@ def run():
     plt.show()
 
     state = env.reset()
+    DQN_model.epsilon = args.epsilon
     for i in range(5):
         state = env.reset()
         done = False
