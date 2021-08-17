@@ -64,7 +64,7 @@ class DQN():
         batch_index = np.arange(self.batch_size, dtype=np.int32)
         y[batch_index, batch_action] = batch_reward + self.gamma * np.max(batch_q_cur, axis=1)
 
-        loss = self.policy_net.train_on_batch(x, y)
+        loss = self.policy_net.fit(x, y, verbose=0)
         self.learn_step_counter += 1
         if self.learn_step_counter % self.update_frequency == 0:
             self._update_param()

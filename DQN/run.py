@@ -3,12 +3,11 @@ import gym
 import argparse
 import model
 import matplotlib.pyplot as plt
-import tqdm
 
 parser = argparse.ArgumentParser("various versions of DQN")
 parser.add_argument("--model", type=str, default="DQN")
 parser.add_argument("--render", action="store_true")
-parser.add_argument("--lr", type=float, default=0.001)
+parser.add_argument("--lr", type=float, default=0.01)
 parser.add_argument("--gamma", type=float, default=0.9)
 parser.add_argument("--episodes", type=int, default=100)
 parser.add_argument("--epsilon", type=float, default=0.9)
@@ -37,20 +36,21 @@ def run():
         DQN_model = model.Dueling_DQN(state_dim, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
                                       args.buffer_size, args.batch_size, args.update_frequency, args.epsilon_increment)
     else:
-        print("model %s was not found")
+        print("model %s was not found" % (args.model))
         return
     ep_rewards = []
     aggr_ep_rewards = {'ep':[],'avg':[],'min':[],'max':[]}
-    for i in tqdm.trange(1, args.episodes+1, ascii=True, unit='episodes'):
+    for i in range(args.episodes):
+        start_time = time.time()
         s_cur = env.reset()
-        reward_sum = 0
+        total_reward = 0
         while True:
             if args.render:
                 env.render()
             action = DQN_model.choose_action(s_cur)
             s_pre = s_cur
             s_cur, reward, done, _ = env.step(action)
-            x, x_dot, theta, theta_dot = s_cur
+            x, _, theta, _ = s_cur
             pre_x, _, pre_theta, _ = s_pre
             r1 = (env.x_threshold - abs(x)) / env.x_threshold - 0.8
             r2 = (env.theta_threshold_radians - abs(theta)) / env.theta_threshold_radians - 0.5
@@ -61,10 +61,10 @@ def run():
                 reward += 1
             DQN_model.store_data(s_pre, action, reward, s_cur)
             DQN_model.learn()
-            reward_sum += reward
+            total_reward += reward
             if done:
                 break
-        ep_rewards.append(reward_sum)
+        ep_rewards.append(total_reward)
         if i % args.aggregate_step == 0 or i == 1:
             average_reward = sum(ep_rewards[-args.aggregate_step:])/len(ep_rewards[-args.aggregate_step:])
             min_reward = min(ep_rewards[-args.aggregate_step:])
@@ -72,7 +72,9 @@ def run():
             aggr_ep_rewards['ep'].append(i)
             aggr_ep_rewards['avg'].append(average_reward)
             aggr_ep_rewards['min'].append(min_reward)
-            aggr_ep_rewards['max'].append(max_reward)   
+            aggr_ep_rewards['max'].append(max_reward)
+        end_time = time.time()
+        print("Episode [%2d / %d]\tTotal eward: %.2f\tPlay time: %.2fs" % (i, args.episodes, total_reward, end_time-start_time))
 
     env.close()
 
