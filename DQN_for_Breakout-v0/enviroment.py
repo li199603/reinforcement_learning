@@ -2,19 +2,21 @@ import gym
 import time
 import matplotlib.pyplot as plt
 import numpy as np
+import cv2
 
 
 class Env_Breakout():
-    def __init__(self, height_rang, width_range, skip_steps=3):
+    def __init__(self, height_rang=[32, 194], width_range=[8, 151], 
+                 height_resize=84, width_resize=84, skip_steps=3):
         self.env = gym.make("Breakout-v0")
         self.height_range = height_rang
         self.width_range = width_range
+        self.height_resize = height_resize
+        self.width_resize = width_resize
         self.skip_steps = skip_steps
         
     def step(self, action):
-        h1, h2 = self.height_range
-        w1, w2 = self.width_range
-        total_state = np.zeros((h2-h1+1, w2-w1+1, 3))
+        total_state = np.zeros((self.height_resize, self.width_resize, 3))
         total_reward = 0
         total_done = False
         for i in range(self.skip_steps):
@@ -54,6 +56,7 @@ class Env_Breakout():
         w1, w2 = self.width_range
         state = state[h1:h2+1, w1:w2+1]
         state = 0.2989 * state[:, :, 0] + 0.5870 * state[:, :, 1] + 0.1140 * state[:, :, 2]
+        state = cv2.resize(state, (84, 84), interpolation=cv2.INTER_LINEAR)
         return state
 
     def close(self):

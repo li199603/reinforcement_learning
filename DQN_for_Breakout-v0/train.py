@@ -14,8 +14,8 @@ parser.add_argument("--gamma", type=float, default=0.9)
 parser.add_argument("--episodes", type=int, default=500)
 parser.add_argument("--epsilon", type=float, default=0.9)
 parser.add_argument("--hidden_dim", type=int, default=50)
-parser.add_argument("--buffer_size", type=int, default=1000)
-parser.add_argument("--batch_size", type=int, default=32)
+parser.add_argument("--buffer_size", type=int, default=10000)
+parser.add_argument("--batch_size", type=int, default=64)
 parser.add_argument("--update_frequency", type=int, default=100)
 parser.add_argument("--epsilon_increment", type=float, default=0.0002)
 parser.add_argument("--aggregate_step", type=int, default=10)
@@ -44,7 +44,7 @@ def train():
             action = agt.choose_action(s_cur)
             s_pre = s_cur
             s_cur, reward, done, _ = env.step(action)
-            agt.store_data(s_pre, action, reward, s_cur)
+            agt.store_data(s_pre, action, reward, s_cur, done)
             agt.learn()
             total_reward += reward
             if done:
@@ -60,7 +60,7 @@ def train():
             aggr_ep_rewards['max'].append(max_reward)
         if i % 50 == 0:
             cur_time = time.strftime("%Y-%m-%d-%Hh%Mm%Ss", time.localtime()) 
-            agt.save("DQN_for_Breakout-v0\checkpoints\\" + cur_time + ".h5")
+            agt.save(".\DQN_for_Breakout-v0\checkpoints\\" + cur_time + ".h5")
         end_time = time.time()
         print("Episode [%3d / %d]    Total reward: %.2f    Current epsilon: %.4f    Play time: %.2fs" % (i, args.episodes, total_reward, agt.epsilon, end_time-start_time))
     env.close()

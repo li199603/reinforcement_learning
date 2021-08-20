@@ -4,14 +4,6 @@ import numpy as np
 from tensorflow.python.keras.engine.input_layer import InputLayer
 import time
 
-def print_run_time(func):  
-    def wrapper(*args, **kw):  
-        local_time = time.time()  
-        res = func(*args, **kw) 
-        print("current Function [%s] run time is %.2f" % (func.__name__ ,time.time() - local_time))
-        return res 
-    return wrapper 
-
 class DQN():
     def __init__(self, featrue_dim, action_dim, lr, gamma, epsilon_max,
                  hidden_dim, buffer_size, batch_size, update_frequency,
@@ -34,6 +26,7 @@ class DQN():
         self.buffer_s_cur = np.zeros((self.buffer_size, ) + self.featrue_dim)
         self.buffer_action = np.zeros((self.buffer_size, ))
         self.buffer_reward = np.zeros((self.buffer_size, ))
+        self.buffer_done = np.zeros((self.buffer_size, ))
         self.buffer_counter = 0
         self.learn_step_counter = 0
         self.policy_net = self._build_net()
@@ -46,9 +39,9 @@ class DQN():
     def _build_net(self):
         net = models.Sequential([
             layers.InputLayer(self.featrue_dim),
-            # layers.Conv2D(32, (10, 10), activation='relu'),
-            # layers.Conv2D(8, (5, 5), activation='relu'),
-            # layers.MaxPool2D(pool_size=(5, 5)),
+            layers.Conv2D(filters=32, kernel_size=(8, 8), strides=(4, 4), padding="same", activation='relu'),
+            layers.Conv2D(filters=64, kernel_size=(4, 4), strides=(2, 2), padding="same", activation='relu'),
+            layers.Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding="same", activation='relu'),
             layers.Flatten(),
             layers.Dense(units=self.hidden_dim, activation="relu"),
             layers.Dense(units=self.action_dim)
@@ -78,11 +71,12 @@ class DQN():
         batch_q_pre = self.policy_net(self.buffer_s_pre[sample_index]).numpy()
         batch_action = self.buffer_action[sample_index].astype(int)
         batch_reward = self.buffer_reward[sample_index]
+        batch_done = self.buffer_done[sample_index]
         
         x = self.buffer_s_pre[sample_index]
         y = batch_q_pre.copy()
         batch_index = np.arange(self.batch_size, dtype=np.int32)
-        y[batch_index, batch_action] = batch_reward + self.gamma * np.max(batch_q_cur, axis=1)
+        y[batch_index, batch_action] = batch_reward + (1 - batch_done) * self.gamma * np.max(batch_q_cur, axis=1)
 
         loss = self.policy_net.fit(x, y, verbose=0)
         self.learn_step_counter += 1
@@ -92,12 +86,13 @@ class DQN():
         return loss
 
 
-    def store_data(self, s_pre, action, reward, s_cur):
+    def store_data(self, s_pre, action, reward, s_cur, done):
         index = self.buffer_counter % self.buffer_size
         self.buffer_s_pre[index] = s_pre
         self.buffer_action[index] = action
         self.buffer_reward[index] = reward
         self.buffer_s_cur[index] = s_cur
+        self.buffer_done[index] = int(done)
         self.buffer_counter += 1
 
     def save(self, path):
