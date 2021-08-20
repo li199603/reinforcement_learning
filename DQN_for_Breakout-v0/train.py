@@ -9,14 +9,15 @@ import time
 
 parser = argparse.ArgumentParser("Ues DQN play Breakout-v0")
 parser.add_argument("--render", action="store_true")
-parser.add_argument("--lr", type=float, default=0.001)
+parser.add_argument("--lr", type=float, default=0.0001)
 parser.add_argument("--gamma", type=float, default=0.9)
-parser.add_argument("--episodes", type=int, default=500)
+parser.add_argument("--episodes", type=int, default=100000)
 parser.add_argument("--epsilon", type=float, default=0.9)
 parser.add_argument("--hidden_dim", type=int, default=50)
 parser.add_argument("--buffer_size", type=int, default=10000)
 parser.add_argument("--batch_size", type=int, default=64)
 parser.add_argument("--update_frequency", type=int, default=100)
+parser.add_argument("--learn_frequency", type=int, default=100)
 parser.add_argument("--epsilon_increment", type=float, default=0.0002)
 parser.add_argument("--aggregate_step", type=int, default=10)
 args = parser.parse_args()
@@ -34,6 +35,7 @@ def train():
                     args.buffer_size, args.batch_size, args.update_frequency, args.epsilon_increment)
     ep_rewards = []
     aggr_ep_rewards = {'ep':[],'avg':[],'min':[],'max':[]}
+    total_step = 0
     for i in range(1, args.episodes+1):
         start_time = time.time()
         s_cur = env.reset()
@@ -45,7 +47,9 @@ def train():
             s_pre = s_cur
             s_cur, reward, done, _ = env.step(action)
             agt.store_data(s_pre, action, reward, s_cur, done)
-            agt.learn()
+            total_step += 1
+            if total_step % args.learn_frequency == 0:
+                agt.learn()
             total_reward += reward
             if done:
                 break
@@ -58,9 +62,9 @@ def train():
             aggr_ep_rewards['avg'].append(average_reward)
             aggr_ep_rewards['min'].append(min_reward)
             aggr_ep_rewards['max'].append(max_reward)
-        if i % 50 == 0:
+        if i % 5000 == 0:
             cur_time = time.strftime("%Y-%m-%d-%Hh%Mm%Ss", time.localtime()) 
-            agt.save(".\DQN_for_Breakout-v0\checkpoints\\" + cur_time + ".h5")
+            agt.save(r"DQN_for_Breakout-v0/checkpoints/" + cur_time + ".h5")
         end_time = time.time()
         print("Episode [%3d / %d]    Total reward: %.2f    Current epsilon: %.4f    Play time: %.2fs" % (i, args.episodes, total_reward, agt.epsilon, end_time-start_time))
     env.close()
