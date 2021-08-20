@@ -30,7 +30,7 @@ def get_env(env_id):
 def run():
     env, state_dim, action_dim = get_env("CartPole-v0")
     if args.model == "DQN":
-        DQN_model = model.DQN_2(state_dim, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
+        DQN_model = model.DQN(state_dim, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
                               args.buffer_size, args.batch_size, args.update_frequency, args.epsilon_increment)
     elif args.model == "Dueling_DQN":
         DQN_model = model.Dueling_DQN(state_dim, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
@@ -59,7 +59,7 @@ def run():
                 reward += 0.5
             if theta * pre_theta < 0:
                 reward += 1
-            DQN_model.store_data(s_pre, action, reward, s_cur)
+            DQN_model.store_data(s_pre, action, reward, s_cur, done)
             DQN_model.learn()
             total_reward += reward
             if done:
