@@ -95,14 +95,15 @@ def train():
 
 
 if __name__ == "__main__":
-    train()
+    # train()
     
     # env = enviroment.Env_Breakout(HEIGHT_RANGE, WIDTH_RANGE)
     # featrue_dim = env.get_featrues_dim()
     # action_dim = env.get_action_dim()
     # agt = agent.DQN(featrue_dim, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
     #                 args.buffer_size, args.batch_size, args.update_frequency, args.epsilon_increment)
-    # agt.load(r"DQN_for_Breakout-v0\checkpoints\2021-08-17-03h46m17s.h5")
+    # agt.load(r"DQN_for_Breakout-v0\checkpoints\2021-08-20-20h57m16s.h5")
+    # agt.epsilon = 1
     # for i in range(5):
     #     state = env.reset()
     #     done = False
@@ -111,6 +112,7 @@ if __name__ == "__main__":
     #         next_state, _, done, _ = env.step(action)
     #         state = next_state
     #         env.render()
+    #         time.sleep(0.2)
 
 
     # env.close()

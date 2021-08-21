@@ -6,10 +6,10 @@ import cv2
 
 
 class Env_Breakout():
-    def __init__(self, height_rang=[32, 194], width_range=[8, 151], 
+    def __init__(self, height_range=[32, 194], width_range=[8, 151], 
                  height_resize=84, width_resize=84, skip_steps=3):
         self.env = gym.make("Breakout-v0")
-        self.height_range = height_rang
+        self.height_range = height_range
         self.width_range = width_range
         self.height_resize = height_resize
         self.width_resize = width_resize
