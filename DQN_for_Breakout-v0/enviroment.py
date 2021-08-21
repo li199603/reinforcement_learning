@@ -6,10 +6,10 @@ import cv2
 
 
 class Env_Breakout():
-    def __init__(self, height_rang=[32, 194], width_range=[8, 151], 
+    def __init__(self, height_range=[32, 194], width_range=[8, 151], 
                  height_resize=84, width_resize=84, skip_steps=3):
         self.env = gym.make("Breakout-v0")
-        self.height_range = height_rang
+        self.height_range = height_range
         self.width_range = width_range
         self.height_resize = height_resize
         self.width_resize = width_resize
@@ -65,27 +65,28 @@ class Env_Breakout():
 
 
 if __name__ == "__main__":
-    HEIGHT_RANGE = [32, 194]
-    WIDTH_RANGE = [8, 151]
-    env = Env_Breakout(HEIGHT_RANGE, WIDTH_RANGE)
-    env.reset()
-    for _ in range(1):
-        observation, reward, done, info = env.step(3)
+    # HEIGHT_RANGE = [32, 194]
+    # WIDTH_RANGE = [8, 151]
+    # env = Env_Breakout(HEIGHT_RANGE, WIDTH_RANGE)
+    # env.reset()
+    # for _ in range(1):
+    #     observation, reward, done, info = env.step(3)
 
-    plt.imshow(observation, cmap="gray")
-    plt.axis('off')
-    plt.show()
+    # plt.imshow(observation, cmap="gray")
+    # plt.axis('off')
+    # plt.show()
     
-    # env = Env_Breakout()
-    # for i in range(5):
-    #     env.reset()
-    #     done = False
-    #     while not done:
-    #         action = env.env.action_space.sample()
-    #         next_state, _, done, _ = env.step(action)
-    #         state = next_state
-    #         env.render()
+    env = Env_Breakout()
+    for i in range(5):
+        env.reset()
+        done = False
+        while not done:
+            # action = env.env.action_space.sample()
+            action = int(input())
+            next_state, _, done, _ = env.step(action)
+            state = next_state
+            env.render()
 
-    # env.close()
+    env.close()
 
 
