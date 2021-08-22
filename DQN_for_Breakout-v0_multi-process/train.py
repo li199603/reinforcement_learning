@@ -1,5 +1,7 @@
 import gym
 import argparse
+import numpy as np
+from tensorflow.python.ops.numpy_ops.np_math_ops import average
 import agent
 import enviroment
 import time
@@ -10,17 +12,16 @@ import tensorboard
 
 parser = argparse.ArgumentParser("Ues DQN playing Breakout-v0. Train in a multi-process way.")
 parser.add_argument("--render", action="store_true")
-parser.add_argument("--lr", type=float, default=0.01)
+parser.add_argument("--lr", type=float, default=0.001)
 parser.add_argument("--gamma", type=float, default=0.9)
-parser.add_argument("--episodes", type=int, default=30)
+parser.add_argument("--episodes", type=int, default=10000)
 parser.add_argument("--epsilon", type=float, default=0.9)
-parser.add_argument("--buffer_size", type=int, default=50000)
+parser.add_argument("--buffer_size", type=int, default=5000)
 parser.add_argument("--batch_size", type=int, default=128)
 parser.add_argument("--update_frequency", type=int, default=100)
-parser.add_argument("--learn_frequency", type=int, default=100)
-parser.add_argument("--epsilon_increment", type=float, default=0.005)
-parser.add_argument("--aggregate_step", type=int, default=10)
-parser.add_argument("--learning_step", type=int, default=5000)
+parser.add_argument("--learn_frequency", type=int, default=10)
+parser.add_argument("--epsilon_increment", type=float, default=0.0002)
+parser.add_argument("--learning_step", type=int, default=2000)
 args = parser.parse_args()
 
 
@@ -29,11 +30,13 @@ def train():
     env = enviroment.Env_Breakout()
     featrue_dim = env.get_featrues_dim()
     action_dim = env.get_action_dim()
-    agt = agent.DQN(featrue_dim, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
-                    args.buffer_size, args.batch_size, args.update_frequency, args.epsilon_increment)
+    data_buffer = replay_buffer.Replay_Buffer(featrue_dim)
+    agt = agent.DQN(featrue_dim, action_dim, args.lr, args.gamma, args.epsilon,
+                    args.update_frequency, args.epsilon_increment)
+    collect_data(env, data_buffer)
     ep_rewards = []
-    aggr_ep_rewards = {'ep':[],'avg':[],'min':[],'max':[]}
     total_step = 0
+    print("------------------- training ------------------------")
     for i in range(1, args.episodes+1):
         start_time = time.time()
         s_cur = env.reset()
@@ -44,33 +47,34 @@ def train():
             action = agt.choose_action(s_cur)
             s_pre = s_cur
             s_cur, reward, done, _ = env.step(action)
-            agt.store_data(s_pre, action, reward, s_cur, done)
+            if done:
+                reward -= 10
+            data_buffer.store_data(s_pre, action, reward, s_cur, done)
             total_step += 1
             if total_step % args.learn_frequency == 0:
-                agt.learn()
+                hist = agt.learn(*data_buffer.sample_batch_data())
+                avg_loss = sum(hist.history["loss"]) / len(hist.history["loss"])
+                agt.write_scalar("loss", avg_loss, i)
             total_reward += reward
             if done:
                 break
         ep_rewards.append(total_reward)
-        if i % args.aggregate_step == 0 or i == 1:
-            average_reward = sum(ep_rewards[-args.aggregate_step:])/len(ep_rewards[-args.aggregate_step:])
-            min_reward = min(ep_rewards[-args.aggregate_step:])
-            max_reward = max(ep_rewards[-args.aggregate_step:])
-            aggr_ep_rewards['ep'].append(i)
-            aggr_ep_rewards['avg'].append(average_reward)
-            aggr_ep_rewards['min'].append(min_reward)
-            aggr_ep_rewards['max'].append(max_reward)
-        if i % 5000 == 0:
+        if len(ep_rewards) > 100:
+            ep_rewards.pop(0)
+        for summary_step in [20, 50, 100]:
+            if i % summary_step == 0:
+                avg_reward = sum(ep_rewards[-summary_step:]) / summary_step
+                agt.write_scalar("avg_reward_" + str(summary_step), avg_reward, i)
+                
+        if i % 500 == 0:
             cur_time = time.strftime("%Y-%m-%d-%Hh%Mm%Ss", time.localtime()) 
-            agt.save(r"DQN_for_Breakout-v0/checkpoints/" + cur_time + ".h5")
+            agt.save(r"./DQN_for_Breakout-v0_multi-process/checkpoints/" + cur_time + ".h5")
         end_time = time.time()
-        print("Episode [%3d / %d]    Total reward: %.2f    Current epsilon: %.4f    Play time: %.2fs" % (i, args.episodes, total_reward, agt.epsilon, end_time-start_time))
+        print("Episode [%5d / %d]    Total reward: %3d    Current epsilon: %.4f    Cost time: %.2fs" % (i, args.episodes, total_reward, agt.epsilon, end_time-start_time))
     env.close()
 
 
-
-
-    agt.epsilon = args.epsilon
+    agt.epsilon = 1
     for i in range(5):
         state = env.reset()
         done = False
@@ -83,10 +87,11 @@ def train():
     env.close()
 
 def collect_data(env, data_buffer):
-    print("-------------------collect data------------------------")
+    print("------------------- collecting data ------------------------")
     s_cur = env.reset()
     for _ in tqdm.trange(args.learning_step):
-        action = env.action_space.sample()
+        action_dim = env.get_action_dim()
+        action = np.random.randint(action_dim)
         s_pre = s_cur
         s_cur, reward, done, _ = env.step(action)
         data_buffer.store_data(s_pre, action, reward, s_cur, done)
@@ -174,14 +179,15 @@ def train2():
 
 
 if __name__ == "__main__":
-    train2()
+    train()
     
-    # env = enviroment.Env_Breakout(HEIGHT_RANGE, WIDTH_RANGE)
+    # env = enviroment.Env_Breakout()
     # featrue_dim = env.get_featrues_dim()
     # action_dim = env.get_action_dim()
-    # agt = agent.DQN(featrue_dim, action_dim, args.lr, args.gamma, args.epsilon, args.hidden_dim,
-    #                 args.buffer_size, args.batch_size, args.update_frequency, args.epsilon_increment)
-    # agt.load(r"DQN_for_Breakout-v0\checkpoints\2021-08-20-20h57m16s.h5")
+    # data_buffer = replay_buffer.Replay_Buffer(featrue_dim)
+    # agt = agent.DQN(featrue_dim, action_dim, args.lr, args.gamma, args.epsilon,
+    #                 args.update_frequency, args.epsilon_increment)
+    # agt.load(r"DQN_for_Breakout-v0_multi-process\checkpoints\2021-08-22-16h45m31s.h5")
     # agt.epsilon = 1
     # for i in range(5):
     #     state = env.reset()

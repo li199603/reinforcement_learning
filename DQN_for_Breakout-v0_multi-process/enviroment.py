@@ -55,7 +55,7 @@ class Env_Breakout():
         w1, w2 = self.width_range
         state = state[h1:h2+1, w1:w2+1]
         state = 0.2989 * state[:, :, 0] + 0.5870 * state[:, :, 1] + 0.1140 * state[:, :, 2]
-        state = cv2.resize(state, (84, 84), interpolation=cv2.INTER_LINEAR)
+        state = cv2.resize(state, (self.height_resize, self.width_resize), interpolation=cv2.INTER_LINEAR)
         return state
 
     def close(self):
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     # plt.axis('off')
     # plt.show()
     
-    env = Env_Breakout()
+    env = gym.make('Breakout-v0')
     for i in range(5):
         env.reset()
         done = False

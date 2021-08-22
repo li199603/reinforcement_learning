@@ -1,6 +1,10 @@
 from tensorflow.keras import models, layers, optimizers, Model
 import tensorflow as tf
 import numpy as np
+import time
+
+from tensorflow.python.keras.backend import pool2d
+from tensorflow.python.ops.gen_nn_ops import MaxPool
 
 class DQN():
     def __init__(self, featrue_dim, action_dim, lr, gamma, epsilon_max,
@@ -22,16 +26,18 @@ class DQN():
         self._update_param()
         opt = optimizers.Adam(learning_rate=self.lr)
         self.policy_net.compile(loss="mse", optimizer=opt)
+        cur_time = time.strftime("DQN_for_Breakout-v0_multi-process/logs/%Y-%m-%d-%Hh%Mm%Ss", time.localtime()) 
+        self.summary_writer = tf.summary.create_file_writer(cur_time)
         print(self.policy_net.summary())
 
     def _build_net(self):
         net = models.Sequential([
             layers.InputLayer(self.featrue_dim),
-            # layers.Conv2D(filters=32, kernel_size=(8, 8), strides=(4, 4), padding="same", activation='relu'),
-            # layers.Conv2D(filters=64, kernel_size=(4, 4), strides=(2, 2), padding="same", activation='relu'),
-            # layers.Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding="same", activation='relu'),
-            # layers.Flatten(),
-            layers.Dense(units=10, activation="relu"),
+            layers.Conv2D(filters=32, kernel_size=(8, 8), strides=(4, 4), padding="same", activation='relu'),
+            layers.Conv2D(filters=64, kernel_size=(4, 4), strides=(2, 2), padding="same", activation='relu'),
+            layers.MaxPool2D(pool_size=(2,2)),
+            layers.Flatten(),
+            layers.Dense(units=50, activation="relu"),
             layers.Dense(units=self.action_dim)
         ])
         return net
@@ -59,13 +65,18 @@ class DQN():
         batch_index = np.arange(batch_size)
         y[batch_index, batch_action] = batch_reward + (1 - batch_done) * self.gamma * np.max(batch_q_cur, axis=1)
 
-        loss = self.policy_net.fit(x, y, verbose=0, batch_size=x.shape[0], epoch=1)
+        hist = self.policy_net.fit(x, y, verbose=0, batch_size=x.shape[0], epochs=5)
         self.learn_step_counter += 1
         if self.learn_step_counter % self.update_frequency == 0:
             self._update_param()
         self.epsilon = min(self.epsilon + self.epsilon_increment, self.epsilon_max)
-        return loss
+        return hist
 
+    def write_scalar(self, name, scalar, step):
+        with self.summary_writer.as_default():
+            tf.summary.scalar(name, scalar, step)
+                
+    
     def save(self, path):
         self.policy_net.save_weights(path)
 

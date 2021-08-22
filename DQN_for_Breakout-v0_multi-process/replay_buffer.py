@@ -2,7 +2,7 @@ from copy import Error
 import numpy as np
 
 class Replay_Buffer:
-    def __init__(self, featrue_dim, buffer_size=100000, frame_history_len=3, batch_size=64):
+    def __init__(self, featrue_dim, buffer_size=5000, frame_history_len=3, batch_size=64):
         if isinstance(featrue_dim, tuple):
             self.featrue_dim = featrue_dim
         elif isinstance(featrue_dim, int):
