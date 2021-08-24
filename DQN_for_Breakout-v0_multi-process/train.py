@@ -1,6 +1,10 @@
 import gym
 import argparse
 import numpy as np
+<<<<<<< HEAD
+=======
+from tensorflow.python.ops.numpy_ops.np_math_ops import average
+>>>>>>> 3de11812f155d98cf29733ba27986de040dfc953
 import agent
 import enviroment
 import time
