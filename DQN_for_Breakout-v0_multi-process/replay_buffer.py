@@ -28,10 +28,11 @@ class Replay_Buffer:
         self.buffer_s_cur[index] = s_cur
         self.buffer_done[index] = int(done)
         self.buffer_counter += 1
+        self.buffer_counter = min(self.buffer_size, self.buffer_counter)
     
     def sample_batch_data(self):
         if self.buffer_counter < self.batch_size:
-            raise Error
+            raise BufferError("There was not enough data!")
         sample_index = np.random.choice(min(self.buffer_size, self.buffer_counter), size=self.batch_size)
         batch_s_pre = self.buffer_s_pre[sample_index]
         batch_action = self.buffer_action[sample_index]

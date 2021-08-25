@@ -3,9 +3,6 @@ import tensorflow as tf
 import numpy as np
 import time
 
-from tensorflow.python.keras.backend import pool2d
-from tensorflow.python.ops.gen_nn_ops import MaxPool
-
 class DQN():
     def __init__(self, featrue_dim, action_dim, lr, gamma, epsilon_max,
                  update_frequency, epsilon_increment):
