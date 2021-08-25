@@ -30,24 +30,14 @@ class DQN():
     def _build_net(self):
         net = models.Sequential([
             layers.InputLayer(self.featrue_dim),
-            layers.Conv2D(filters=32, kernel_size=(8, 8), strides=(4, 4), padding="same", activation='relu'),
-            layers.Conv2D(filters=64, kernel_size=(4, 4), strides=(2, 2), padding="same", activation='relu'),
+            layers.Conv2D(filters=8, kernel_size=(8, 8), strides=(4, 4), padding="same", activation='relu'),
+            layers.Conv2D(filters=16, kernel_size=(4, 4), strides=(2, 2), padding="same", activation='relu'),
             layers.MaxPool2D(pool_size=(2,2)),
             layers.Flatten(),
             layers.Dense(units=50, activation="relu"),
             layers.Dense(units=self.action_dim)
         ])
         return net
-    
-    def choose_action(self, state):
-        state = np.expand_dims(state, 0)
-        if np.random.uniform() < self.epsilon:
-            q_values = self.policy_net(state).numpy().reshape([self.action_dim])
-            max_q = np.max(q_values)
-            action = np.random.choice(np.where(q_values == max_q)[0])
-        else:
-            action = np.random.choice(self.action_dim)
-        return action
 
     def _update_param(self):
         self.target_net.set_weights(self.policy_net.get_weights())
@@ -68,12 +58,7 @@ class DQN():
             self._update_param()
         self.epsilon = min(self.epsilon + self.epsilon_increment, self.epsilon_max)
         return hist
-
-    def write_scalar(self, name, scalar, step):
-        with self.summary_writer.as_default():
-            tf.summary.scalar(name, scalar, step)
                 
-    
     def save(self, path):
         self.policy_net.save_weights(path)
 
