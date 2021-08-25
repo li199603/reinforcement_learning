@@ -110,9 +110,9 @@ def play_game(reward_queue: Queue, data_queue: Queue, init_weights, init_epsilon
             if done:
                 reward -= 10
             data_queue.put([s_pre, action, reward, s_cur, done])
-            ############################
-            # policy_net  epsilon 更新 #
-            ############################
+            ###########################
+            # policy_net epsilon 更新 #
+            ###########################
             total_reward += reward
             if done:
                 break
