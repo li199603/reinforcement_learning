@@ -34,27 +34,30 @@ def train():
     reward_queue = mp.Queue()
     loss_queue = mp.Queue()
     step_data_queue = mp.Queue()
-    batch_data_pipe = mp.Pipe()
-    agent_pipe = mp.Pipe()
+    batch_data_pipe1, batch_data_pipe2 = mp.Pipe()
+    agent_pipe1, agent_pipe2 = mp.Pipe()
     
-    sd = mp.Process(target=store_data, args=(featrue_dim, args.buffer_size, step_data_queue, batch_data_pipe[0]))
-    pg = mp.Process(target=play_game, args=(reward_queue, step_data_queue, agent_pipe[0], init_weights, init_epsilon))
+    sd = mp.Process(target=store_data, args=(featrue_dim, args.buffer_size, step_data_queue, batch_data_pipe2))
+    pg = mp.Process(target=play_game, args=(reward_queue, step_data_queue, agent_pipe2, init_weights, init_epsilon))
     wt = mp.Process(target=write_tensorboard, args=(reward_queue, loss_queue))
     
     for p in [sd, pg, wt]:
         p.start()
     
-    
-    for i in tqdm.tgrange(1, args.learning_times+1):
-        batch_data_pipe[1].send(True)
-        batch_data = batch_data_pipe[1].recv()
+    for i in range(1, args.learning_times+1):
+        time1 = time.time()
+        batch_data_pipe1.send(True)
+        batch_data = batch_data_pipe1.recv()
+        time2 = time.time()
         hist = agt.learn(*batch_data)
+        time3 = time.time()
         loss = sum(hist.history["loss"]) / len(hist.history["loss"])
         loss_queue.put(loss)
-        if agent_pipe[1].poll():
-            _ = agent_pipe[1].recv()
+        if agent_pipe1.poll():
+            _ = agent_pipe1.recv()
             x = {"weights": agt.policy_net.get_weights(), "epsilon": agt.epsilon}
-            agent_pipe[1].send(x)
+            agent_pipe1.send(x)
+        print("%5d\trecv_time: %2.4f\tlearn_time: %2.4f\t" % (i, time2-time1, time3-time2))
 
     
 
@@ -147,10 +150,12 @@ def write_tensorboard(reward_queue: mp.Queue, loss_queue: mp.Queue, max_count=50
     loss_step = 1
     
     while True:
-        reward_sum += reward_queue.get()
-        reward_count += 1
-        loss_sum += loss_queue.get()
-        loss_count += 1
+        if not reward_queue.empty():
+            reward_sum += reward_queue.get()
+            reward_count += 1
+        if not loss_queue.empty():
+            loss_sum += loss_queue.get()
+            loss_count += 1
         with summary_writer.as_default():
             if reward_count == max_count:
                 tf.summary.scalar("avg_reward", reward_sum/max_count, reward_step)

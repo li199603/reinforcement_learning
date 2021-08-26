@@ -23,8 +23,6 @@ class DQN():
         self._update_param()
         opt = optimizers.Adam(learning_rate=self.lr)
         self.policy_net.compile(loss="mse", optimizer=opt)
-        cur_time = time.strftime("DQN_for_Breakout-v0_multi-process/logs/%Y-%m-%d-%Hh%Mm%Ss", time.localtime()) 
-        self.summary_writer = tf.summary.create_file_writer(cur_time)
         print(self.policy_net.summary())
 
     def _build_net(self):
