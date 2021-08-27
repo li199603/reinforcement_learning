@@ -30,12 +30,22 @@ class DQN():
             layers.InputLayer(self.featrue_dim),
             layers.Conv2D(filters=8, kernel_size=(8, 8), strides=(4, 4), padding="same", activation='relu'),
             layers.Conv2D(filters=16, kernel_size=(4, 4), strides=(2, 2), padding="same", activation='relu'),
-            layers.MaxPool2D(pool_size=(2,2)),
+            layers.MaxPool2D(pool_size=(4, 4)),
             layers.Flatten(),
             layers.Dense(units=50, activation="relu"),
             layers.Dense(units=self.action_dim)
         ])
         return net
+    
+    def choose_action(self, state):
+        state = np.expand_dims(state, 0)
+        if np.random.uniform() < self.epsilon:
+            q_values = np.squeeze(self.policy_net(state).numpy())
+            max_q = np.max(q_values)
+            action = np.random.choice(np.where(q_values == max_q)[0])
+        else:
+            action = np.random.choice(self.action_dim)
+        return action
 
     def _update_param(self):
         self.target_net.set_weights(self.policy_net.get_weights())
@@ -54,6 +64,7 @@ class DQN():
         self.learn_step_counter += 1
         if self.learn_step_counter % self.update_frequency == 0:
             self._update_param()
+            self.learn_step_counter = 0
         self.epsilon = min(self.epsilon + self.epsilon_increment, self.epsilon_max)
         return hist
                 

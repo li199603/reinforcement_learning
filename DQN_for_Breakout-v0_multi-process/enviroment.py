@@ -32,7 +32,9 @@ class Env_Breakout():
             if i == self.skip_steps-1:
                 state = self.state_process(state)
                 total_state[:, :, 2] = state
-        return total_state, total_reward, total_done, info
+        if total_done:
+            total_reward -= 10
+        return total_state, total_reward * 0.1, total_done, info
     
     def get_action_dim(self):
         return self.env.action_space.n

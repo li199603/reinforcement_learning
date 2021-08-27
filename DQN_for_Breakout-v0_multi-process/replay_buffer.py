@@ -2,7 +2,7 @@ from copy import Error
 import numpy as np
 
 class Replay_Buffer:
-    def __init__(self, featrue_dim, buffer_size=5000, frame_history_len=3, batch_size=64):
+    def __init__(self, featrue_dim, buffer_size=2000, batch_size=64):
         if isinstance(featrue_dim, tuple):
             self.featrue_dim = featrue_dim
         elif isinstance(featrue_dim, int):
@@ -10,8 +10,6 @@ class Replay_Buffer:
         else:
             raise Error
         self.buffer_size = buffer_size
-        # 一个样本数据中，states包含的帧数。这样的特征能够反映历史信息，即能够让模型捕捉游戏中物体运动的方向和速度
-        self.frame_history_len = frame_history_len
         self.batch_size = batch_size
         self.buffer_s_pre = np.zeros((self.buffer_size, ) + self.featrue_dim)
         self.buffer_s_cur = np.zeros((self.buffer_size, ) + self.featrue_dim)

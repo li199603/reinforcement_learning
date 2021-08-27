@@ -176,28 +176,28 @@ def train2():
     env.close() 
 
 if __name__ == "__main__":
-    # train()
+    train()
     
-    env = enviroment.Env_Breakout()
-    featrue_dim = env.get_featrues_dim()
-    action_dim = env.get_action_dim()
-    data_buffer = replay_buffer.Replay_Buffer(featrue_dim)
-    agt = agent.DQN(featrue_dim, action_dim, args.lr, args.gamma, args.epsilon,
-                    args.update_frequency, args.epsilon_increment)
-    agt.load(r"DQN_for_Breakout-v0_multi-process\checkpoints\2021-08-22-20h52m10s.h5")
-    agt.epsilon = 1
-    for i in range(5):
-        state = env.reset()
-        done = False
-        while not done:
-            action = agt.choose_action(state)
-            next_state, _, done, _ = env.step(action)
-            state = next_state
-            env.render()
-            time.sleep(0.2)
+    # env = enviroment.Env_Breakout()
+    # featrue_dim = env.get_featrues_dim()
+    # action_dim = env.get_action_dim()
+    # data_buffer = replay_buffer.Replay_Buffer(featrue_dim)
+    # agt = agent.DQN(featrue_dim, action_dim, args.lr, args.gamma, args.epsilon,
+    #                 args.update_frequency, args.epsilon_increment)
+    # agt.load(r"DQN_for_Breakout-v0_multi-process\checkpoints\2021-08-22-20h52m10s.h5")
+    # agt.epsilon = 1
+    # for i in range(5):
+    #     state = env.reset()
+    #     done = False
+    #     while not done:
+    #         action = agt.choose_action(state)
+    #         next_state, _, done, _ = env.step(action)
+    #         state = next_state
+    #         env.render()
+    #         time.sleep(0.2)
 
 
-    env.close()
+    # env.close()
     
 
 
