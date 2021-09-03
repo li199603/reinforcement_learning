@@ -11,7 +11,7 @@ import tqdm
 
 
 parser = argparse.ArgumentParser("Ues DQN playing Breakout-v0. Train in a multi-process way.")
-parser.add_argument("--lr", type=float, default=0.001)
+parser.add_argument("--lr", type=float, default=0.0001)
 parser.add_argument("--gamma", type=float, default=0.9)
 parser.add_argument("--epsilon", type=float, default=0.9)
 parser.add_argument("--buffer_size", type=int, default=2000)
@@ -111,9 +111,9 @@ def play_game(reward_queue: mp.Queue, step_data_queue: mp.Queue, agent_pipe, ini
     def build_net(featrue_dim, action_dim):
         net = models.Sequential([
             layers.InputLayer(featrue_dim),
-            layers.Conv2D(filters=8, kernel_size=(8, 8), strides=(4, 4), padding="same", activation='relu'),
-            layers.Conv2D(filters=16, kernel_size=(4, 4), strides=(2, 2), padding="same", activation='relu'),
-            layers.MaxPool2D(pool_size=(4, 4)),
+            layers.Conv2D(filters=32, kernel_size=(8, 8), strides=(4, 4), padding="same", activation='relu'),
+            layers.Conv2D(filters=64, kernel_size=(4, 4), strides=(2, 2), padding="same", activation='relu'),
+            layers.Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding="same", activation='relu'),
             layers.Flatten(),
             layers.Dense(units=50, activation="relu"),
             layers.Dense(action_dim)

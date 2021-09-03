@@ -11,7 +11,7 @@ class DQN():
             self.featrue_dim = featrue_dim
         elif isinstance(featrue_dim, int):
             self.featrue_dim = (featrue_dim, )
-        self.lr = lr
+        self.lr = optimizers.schedules.ExponentialDecay(lr, decay_steps=100000, decay_rate=0.96, staircase=True)
         self.gamma = gamma
         self.epsilon_max = epsilon_max
         self.epsilon_increment = epsilon_increment
@@ -28,9 +28,9 @@ class DQN():
     def _build_net(self):
         net = models.Sequential([
             layers.InputLayer(self.featrue_dim),
-            layers.Conv2D(filters=8, kernel_size=(8, 8), strides=(4, 4), padding="same", activation='relu'),
-            layers.Conv2D(filters=16, kernel_size=(4, 4), strides=(2, 2), padding="same", activation='relu'),
-            layers.MaxPool2D(pool_size=(4, 4)),
+            layers.Conv2D(filters=32, kernel_size=(8, 8), strides=(4, 4), padding="same", activation='relu'),
+            layers.Conv2D(filters=64, kernel_size=(4, 4), strides=(2, 2), padding="same", activation='relu'),
+            layers.Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding="same", activation='relu'),
             layers.Flatten(),
             layers.Dense(units=50, activation="relu"),
             layers.Dense(units=self.action_dim)
