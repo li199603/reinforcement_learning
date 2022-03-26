@@ -1,8 +1,7 @@
 import gym
 import argparse
-from model import DDPG
-# from model_train_with_tape import DDPG
-
+from agent import DDPG
+import time
 
 parser = argparse.ArgumentParser("Playing gym's game of Pendulum by DDPG")
 parser.add_argument("--render", action="store_true")
@@ -21,13 +20,20 @@ def run():
     action_dim = env.action_space.shape[0]
     state_dim = env.observation_space.shape[0]
     action_bound = env.action_space.high
-    ddpg = DDPG(action_dim, state_dim, action_bound,
-                args.actor_lr, args.critic_lr, args.gamma, args.tau,
-                args.buffer_size, args.batch_size)
+    ddpg = DDPG(action_dim,
+                state_dim,
+                action_bound,
+                args.actor_lr,
+                args.critic_lr,
+                args.gamma,
+                args.tau,
+                args.buffer_size,
+                args.batch_size)
     
     for episode in range(args.max_episode):
         state = env.reset()
         ep_reward = 0
+        start_time = time.time()
         while True:
             if args.render:
                 env.render()
@@ -39,10 +45,9 @@ def run():
             state = next_state
             if done:
                 break
-        print("episode: %d, reward: %.3f" % (episode, ep_reward))
+        end_time = time.time()
+        print("episode: %d, reward: %.3f, time: %.3fs" % (episode, ep_reward, end_time - start_time))
             
             
-            
-
 if __name__ == "__main__":
     run()
