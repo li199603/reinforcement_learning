@@ -1,7 +1,10 @@
 import gym
 import argparse
 from agent import DDPG
+import numpy as np
 import time
+import tqdm
+from tensorboardX import SummaryWriter
 
 parser = argparse.ArgumentParser("Playing gym's game of Pendulum by DDPG")
 parser.add_argument("--render", action="store_true")
@@ -11,7 +14,7 @@ parser.add_argument("--gamma", type=float, default=0.99)
 parser.add_argument("--tau", type=float, default=0.005)
 parser.add_argument("--buffer_size", type=int, default=50000)
 parser.add_argument("--batch_size", type=int, default=64)
-parser.add_argument("--max_episode", type=int, default=50)
+parser.add_argument("--max_episode", type=int, default=200)
 args = parser.parse_args()
 
 
@@ -20,6 +23,10 @@ def run():
     action_dim = env.action_space.shape[0]
     state_dim = env.observation_space.shape[0]
     action_bound = env.action_space.high
+    
+    dir_name = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) 
+    summary_writer = SummaryWriter("DDPG/summary/" + dir_name)
+    
     ddpg = DDPG(action_dim,
                 state_dim,
                 action_bound,
@@ -28,9 +35,11 @@ def run():
                 args.gamma,
                 args.tau,
                 args.buffer_size,
-                args.batch_size)
+                args.batch_size,
+                summary_writer)
     
-    for episode in range(args.max_episode):
+    ep_reward_list = []
+    for episode in tqdm.trange(args.max_episode):
         state = env.reset()
         ep_reward = 0
         start_time = time.time()
@@ -46,7 +55,12 @@ def run():
             if done:
                 break
         end_time = time.time()
-        print("episode: %d, reward: %.3f, time: %.3fs" % (episode, ep_reward, end_time - start_time))
+        ep_reward_list.append(ep_reward)
+        avg_ep_reward = np.mean(ep_reward_list[-20:])
+        ep_time = end_time - start_time
+        summary_writer.add_scalar("env/ep_reward", ep_reward, episode)
+        summary_writer.add_scalar("env/avg_ep_reward", avg_ep_reward, episode)
+        summary_writer.add_scalar("env/ep_time", ep_time, episode)
             
             
 if __name__ == "__main__":

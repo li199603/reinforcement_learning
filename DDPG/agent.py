@@ -4,6 +4,7 @@ from tensorflow.keras import layers
 import numpy as np
 from replay_buffer import ReplayBuffer
 
+
 class DDPG:
     def __init__(self,
                  action_dim,
@@ -13,7 +14,8 @@ class DDPG:
                  critic_lr,
                  gamma, tau,
                  buffer_size,
-                 batch_size):
+                 batch_size,
+                 summary_writer):
         
         self.action_dim = action_dim
         self.state_dim = state_dim
@@ -31,6 +33,8 @@ class DDPG:
         self.critic.summary()
         
         self.buffer = ReplayBuffer(2*state_dim+action_dim+2, buffer_size, batch_size)
+        self.summary_writer = summary_writer
+        self.learn_step_count = 0
     
     def policy(self, state):
         state = np.expand_dims(state, 0)
@@ -42,30 +46,35 @@ class DDPG:
             states, actions, rewards, dones, next_states = self._sample_transition()
         except Exception:
             return
-        self._critic_learn(states, actions, rewards, dones, next_states)
-        self._actor_learn(states)
+        critic_loss = self._critic_learn(states, actions, rewards, dones, next_states)
+        actor_loss = self._actor_learn(states)
+        self.summary_writer.add_scalar("agent/critic_loss", critic_loss.numpy(), self.learn_step_count)
+        self.summary_writer.add_scalar("agent/actor_loss", actor_loss.numpy(), self.learn_step_count)
         self._update_target_model()
+        self.learn_step_count += 1
         
     @tf.function
     def _critic_learn(self, states, actions, rewards, dones, next_states):
         with tf.GradientTape() as tape:
-            next_actions = self.actor_target(next_states, training=True)
-            next_q = self.critic_target([next_states, next_actions], training=True)
+            next_actions = self.actor_target(next_states)
+            next_q = self.critic_target([next_states, next_actions])
             td_target = rewards + (1 - dones) * self.gamma * next_q
-            cur_q = self.critic([states, actions], training=True)
+            cur_q = self.critic([states, actions])
             loss = tf.math.reduce_mean(tf.math.square(cur_q - td_target))
         grad = tape.gradient(loss, self.critic.trainable_variables)
         self.critic_opt.apply_gradients(zip(grad, self.critic.trainable_variables))
+        return loss
     
     @tf.function
     def _actor_learn(self, states):
         with tf.GradientTape() as tape:
-            actions = self.actor(states, training=True)
-            q = self.critic([states, actions], training=True)
-            actor_loss = -tf.math.reduce_mean(q)
-        grads = tape.gradient(actor_loss, self.actor.trainable_variables)
+            actions = self.actor(states)
+            q = self.critic([states, actions])
+            loss = -tf.math.reduce_mean(q)
+        grads = tape.gradient(loss, self.actor.trainable_variables)
         self.actor_opt.apply_gradients(zip(grads, self.actor.trainable_variables))
-    
+        return loss
+        
     @tf.function  
     def _update_target_model(self):
         def _update(model, target_model):
