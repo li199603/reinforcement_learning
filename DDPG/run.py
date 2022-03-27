@@ -61,7 +61,68 @@ def run():
         summary_writer.add_scalar("env/ep_reward", ep_reward, episode)
         summary_writer.add_scalar("env/avg_ep_reward", avg_ep_reward, episode)
         summary_writer.add_scalar("env/ep_time", ep_time, episode)
+    ddpg.save("DDPG/model_save")
+
+def eval():
+    env = gym.make("Pendulum-v1")
+    action_dim = env.action_space.shape[0]
+    state_dim = env.observation_space.shape[0]
+    action_bound = env.action_space.high
+    
+    dir_name = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) 
+    summary_writer = SummaryWriter("DDPG/summary/" + dir_name)
+    
+    ddpg = DDPG(action_dim,
+                state_dim,
+                action_bound,
+                args.actor_lr,
+                args.critic_lr,
+                args.gamma,
+                args.tau,
+                args.buffer_size,
+                args.batch_size,
+                summary_writer)
+    
+    print("************** before load **************")
+    ep_reward_list = []
+    for episode in range(5):
+        state = env.reset()
+        ep_reward = 0
+        while True:
+            env.render()
+            action = ddpg.policy(state)
+            next_state, reward, done, _ = env.step(action)
+            ep_reward += reward
+            state = next_state
+            if done:
+                break
+        ep_reward_list.append(ep_reward)
+        print("episode: %d, ep_reward: %.2f" % (episode, ep_reward))
+    avg_ep_reward = np.mean(ep_reward_list)
+    print("avg_ep_reward: %.2f" % (avg_ep_reward))
+    
+    
+    print("************** after load **************")
+    ddpg.load("DDPG/model_save")
+    ep_reward_list = []
+    for episode in range(5):
+        state = env.reset()
+        ep_reward = 0
+        while True:
+            env.render()
+            action = ddpg.policy(state)
+            next_state, reward, done, _ = env.step(action)
+            ep_reward += reward
+            state = next_state
+            if done:
+                break
+        ep_reward_list.append(ep_reward)
+        print("episode: %d, ep_reward: %.2f" % (episode, ep_reward))
+    avg_ep_reward = np.mean(ep_reward_list)
+    print("avg_ep_reward: %.2f" % (avg_ep_reward))
+    
             
             
 if __name__ == "__main__":
     run()
+    eval()

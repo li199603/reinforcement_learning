@@ -3,7 +3,7 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers
 import numpy as np
 from replay_buffer import ReplayBuffer
-
+import os
 
 class DDPG:
     def __init__(self,
@@ -127,7 +127,20 @@ class DDPG:
         outputs = layers.Dense(1)(x)
         model = keras.Model([state_inputs, action_inputs], outputs)
         return model
-        
+    
+    def save(self, dir):
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        actor_path = os.path.join(dir, "actor_model.h5")
+        critic_path = os.path.join(dir, "critic_model.h5")
+        self.actor.save_weights(actor_path)
+        self.critic.save_weights(critic_path)
+    
+    def load(self, dir):
+        actor_path = os.path.join(dir, "actor_model.h5")
+        critic_path = os.path.join(dir, "critic_model.h5")
+        self.actor.load_weights(actor_path)
+        self.critic.load_weights(critic_path)
         
         
         
