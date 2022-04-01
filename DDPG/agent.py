@@ -32,7 +32,7 @@ class DDPG:
         self.actor.summary()
         self.critic.summary()
         
-        self.buffer = ReplayBuffer(2*state_dim+action_dim+2, buffer_size, batch_size)
+        self.buffer = ReplayBuffer(state_dim, action_dim, buffer_size, batch_size)
         self.summary_writer = summary_writer
         self.learn_step_count = 0
     
@@ -86,17 +86,11 @@ class DDPG:
         _update(self.critic, self.critic_target)
     
     def store_transition(self, state, action, reward, done, next_state):
-        data = np.hstack((state, action, [reward, int(done)], next_state))
-        self.buffer.store(data)
+        done = int(done)
+        self.buffer.store(state, action, reward, done, next_state)
     
     def _sample_transition(self):
-        data = self.buffer.sample()
-        states = data[:, :self.state_dim]
-        actions = data[:, self.state_dim:self.state_dim+self.action_dim]
-        rewards = data[:, -self.state_dim-2:-self.state_dim-1]
-        dones = data[:, -self.state_dim-1:-self.state_dim]
-        next_states = data[:, -self.state_dim:]
-        
+        states, actions, rewards, dones, next_states = self.buffer.sample()
         states = tf.convert_to_tensor(states)
         actions = tf.convert_to_tensor(actions)
         rewards = tf.convert_to_tensor(rewards, dtype=tf.float32)
