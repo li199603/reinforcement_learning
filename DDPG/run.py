@@ -14,6 +14,7 @@ parser.add_argument("--gamma", type=float, default=0.99)
 parser.add_argument("--tau", type=float, default=0.005)
 parser.add_argument("--buffer_size", type=int, default=50000)
 parser.add_argument("--batch_size", type=int, default=64)
+parser.add_argument("--n_step", type=int, default=8)
 parser.add_argument("--max_episode", type=int, default=200)
 args = parser.parse_args()
 
@@ -36,6 +37,7 @@ def run():
                 args.tau,
                 args.buffer_size,
                 args.batch_size,
+                args.n_step,
                 summary_writer)
     
     ep_reward_list = []
@@ -81,11 +83,12 @@ def eval():
                 args.tau,
                 args.buffer_size,
                 args.batch_size,
+                args.n_step,
                 summary_writer)
     
     print("************** before load **************")
     ep_reward_list = []
-    for episode in range(5):
+    for episode in range(0):
         state = env.reset()
         ep_reward = 0
         while True:
@@ -105,7 +108,7 @@ def eval():
     print("************** after load **************")
     ddpg.load("DDPG/model_save")
     ep_reward_list = []
-    for episode in range(5):
+    for episode in range(3):
         state = env.reset()
         ep_reward = 0
         while True:

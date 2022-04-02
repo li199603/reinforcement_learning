@@ -2,7 +2,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
 import numpy as np
-from replay_buffer import ReplayBuffer
+from replay_buffer import ReplayBuffer, ReplayBufferNStep
 import os
 
 class DDPG:
@@ -15,6 +15,7 @@ class DDPG:
                  gamma, tau,
                  buffer_size,
                  batch_size,
+                 n_step,
                  summary_writer):
         
         self.action_dim = action_dim
@@ -22,6 +23,7 @@ class DDPG:
         self.action_bound = action_bound
         self.gamma = gamma
         self.tau = tau
+        self.n_step = n_step
         
         self.actor, self.actor_target = self._build_actor(), self._build_actor()
         self.critic, self.critic_target = self._build_critic(), self._build_critic()
@@ -32,7 +34,7 @@ class DDPG:
         self.actor.summary()
         self.critic.summary()
         
-        self.buffer = ReplayBuffer(state_dim, action_dim, buffer_size, batch_size)
+        self.buffer = ReplayBufferNStep(state_dim, action_dim, buffer_size, batch_size, n_step, gamma)
         self.summary_writer = summary_writer
         self.learn_step_count = 0
     
@@ -58,7 +60,7 @@ class DDPG:
         with tf.GradientTape() as tape:
             next_actions = self.actor_target(next_states)
             next_q = self.critic_target([next_states, next_actions])
-            td_target = rewards + (1 - dones) * self.gamma * next_q
+            td_target = rewards + (1 - dones) * np.power(self.gamma, self.n_step) * next_q
             cur_q = self.critic([states, actions])
             loss = tf.math.reduce_mean(tf.math.square(cur_q - td_target))
         grad = tape.gradient(loss, self.critic.trainable_variables)
