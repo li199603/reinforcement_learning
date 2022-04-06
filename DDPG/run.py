@@ -1,3 +1,4 @@
+from xmlrpc.client import boolean
 import gym
 import argparse
 from agent import DDPG
@@ -14,7 +15,8 @@ parser.add_argument("--gamma", type=float, default=0.99)
 parser.add_argument("--tau", type=float, default=0.005)
 parser.add_argument("--buffer_size", type=int, default=50000)
 parser.add_argument("--batch_size", type=int, default=64)
-parser.add_argument("--n_step", type=int, default=8)
+parser.add_argument("--n_step", type=int, default=1)
+parser.add_argument("--priority_replay", action="store_true")
 parser.add_argument("--max_episode", type=int, default=200)
 args = parser.parse_args()
 
@@ -38,6 +40,7 @@ def run():
                 args.buffer_size,
                 args.batch_size,
                 args.n_step,
+                args.priority_replay,
                 summary_writer)
     
     ep_reward_list = []
@@ -70,9 +73,7 @@ def eval():
     action_dim = env.action_space.shape[0]
     state_dim = env.observation_space.shape[0]
     action_bound = env.action_space.high
-    
-    dir_name = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) 
-    summary_writer = SummaryWriter("DDPG/summary/" + dir_name)
+    summary_writer = None
     
     ddpg = DDPG(action_dim,
                 state_dim,
@@ -84,6 +85,7 @@ def eval():
                 args.buffer_size,
                 args.batch_size,
                 args.n_step,
+                args.priority_replay,
                 summary_writer)
     
     print("************** before load **************")

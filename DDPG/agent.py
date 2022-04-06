@@ -1,8 +1,9 @@
+from cgitb import grey
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
 import numpy as np
-from replay_buffer import ReplayBuffer, ReplayBufferNStep
+from replay_buffer import ReplayBuffer, ReplayBufferNStep, PriorityReplayBuffer
 import os
 
 class DDPG:
@@ -16,6 +17,7 @@ class DDPG:
                  buffer_size,
                  batch_size,
                  n_step,
+                 priority_replay,
                  summary_writer):
         
         self.action_dim = action_dim
@@ -24,6 +26,7 @@ class DDPG:
         self.gamma = gamma
         self.tau = tau
         self.n_step = n_step
+        self.priority_replay = priority_replay
         
         self.actor, self.actor_target = self._build_actor(), self._build_actor()
         self.critic, self.critic_target = self._build_critic(), self._build_critic()
@@ -34,7 +37,10 @@ class DDPG:
         self.actor.summary()
         self.critic.summary()
         
-        self.buffer = ReplayBufferNStep(state_dim, action_dim, buffer_size, batch_size, n_step, gamma)
+        if priority_replay:
+            self.buffer = PriorityReplayBuffer(state_dim, action_dim, buffer_size, batch_size)
+        else:
+            self.buffer = ReplayBufferNStep(state_dim, action_dim, buffer_size, batch_size, n_step, gamma)
         self.summary_writer = summary_writer
         self.learn_step_count = 0
     
@@ -45,34 +51,42 @@ class DDPG:
     
     def learn(self):
         try:
-            states, actions, rewards, dones, next_states = self._sample_transition()
-        except Exception:
+            if self.priority_replay:
+                states, actions, rewards, dones, next_states, node_indices, importance_sampling_weights = self._sample_transition()
+            else:
+                states, actions, rewards, dones, next_states = self._sample_transition()
+                importance_sampling_weights = tf.convert_to_tensor([1.0]*len(states))
+        except Exception as e:
             return
-        critic_loss = self._critic_learn(states, actions, rewards, dones, next_states)
-        actor_loss = self._actor_learn(states)
+        critic_loss, abs_errors = self._critic_learn(states, actions, rewards, dones, next_states, importance_sampling_weights)
+        actor_loss = self._actor_learn(states, importance_sampling_weights)
+        if self.priority_replay:
+            self.buffer.errors_update(node_indices, abs_errors.numpy())
         self.summary_writer.add_scalar("agent/critic_loss", critic_loss.numpy(), self.learn_step_count)
         self.summary_writer.add_scalar("agent/actor_loss", actor_loss.numpy(), self.learn_step_count)
         self._update_target_model()
         self.learn_step_count += 1
         
     @tf.function
-    def _critic_learn(self, states, actions, rewards, dones, next_states):
+    def _critic_learn(self, states, actions, rewards, dones, next_states, importance_sampling_weights):
         with tf.GradientTape() as tape:
             next_actions = self.actor_target(next_states)
             next_q = self.critic_target([next_states, next_actions])
             td_target = rewards + (1 - dones) * np.power(self.gamma, self.n_step) * next_q
             cur_q = self.critic([states, actions])
-            loss = tf.math.reduce_mean(tf.math.square(cur_q - td_target))
+            costs = tf.math.square(cur_q - td_target)
+            abs_errors = tf.math.sqrt(costs)
+            loss = tf.math.reduce_mean(costs * importance_sampling_weights)
         grad = tape.gradient(loss, self.critic.trainable_variables)
         self.critic_opt.apply_gradients(zip(grad, self.critic.trainable_variables))
-        return loss
+        return loss, abs_errors
     
     @tf.function
-    def _actor_learn(self, states):
+    def _actor_learn(self, states, importance_sampling_weights):
         with tf.GradientTape() as tape:
             actions = self.actor(states)
             q = self.critic([states, actions])
-            loss = -tf.math.reduce_mean(q)
+            loss = -tf.math.reduce_mean(q * importance_sampling_weights)
         grads = tape.gradient(loss, self.actor.trainable_variables)
         self.actor_opt.apply_gradients(zip(grads, self.actor.trainable_variables))
         return loss
@@ -92,12 +106,19 @@ class DDPG:
         self.buffer.store(state, action, reward, done, next_state)
     
     def _sample_transition(self):
-        states, actions, rewards, dones, next_states = self.buffer.sample()
+        if self.priority_replay:
+            data_batch, node_indices, importance_sampling_weights = self.buffer.sample()
+            states, actions, rewards, dones, next_states = data_batch
+            importance_sampling_weights = tf.convert_to_tensor(importance_sampling_weights, dtype=tf.float32)
+        else:
+            states, actions, rewards, dones, next_states = self.buffer.sample()
         states = tf.convert_to_tensor(states)
         actions = tf.convert_to_tensor(actions)
         rewards = tf.convert_to_tensor(rewards, dtype=tf.float32)
         dones = tf.convert_to_tensor(dones, dtype=tf.float32)
         next_states = tf.convert_to_tensor(next_states)
+        if self.priority_replay:
+            return states, actions, rewards, dones, next_states, node_indices, importance_sampling_weights
         return states, actions, rewards, dones, next_states
     
     def _build_actor(self):
