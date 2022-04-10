@@ -108,6 +108,32 @@ class PriorityReplayBuffer(ReplayBuffer):
             self.sum_tree.update(i, p)
         
 
+class PriorityReplayBufferNStep(PriorityReplayBuffer):
+    def __init__(self, state_dim, action_dim, buffer_size, sample_size, n_step, gamma):
+        super().__init__(state_dim, action_dim, buffer_size, sample_size)
+        self.n_step = n_step
+        self.gamma = gamma
+        self.queue = [] # 辅助计算 n_step 的 discounted_reward, look_ahead_done, look_ahead_state
+    
+    def store(self, state, action, reward, done, next_state):
+        self.queue.append([state, action, reward, done, next_state])
+        if done:
+            discounted_reward = 0
+            look_ahead_done = True
+            look_ahead_state = next_state
+            while len(self.queue) > 0:
+                state_i, action_i, reward_i, done_i, next_state_i = self.queue.pop()
+                discounted_reward = reward_i + self.gamma * discounted_reward
+                super().store(state_i, action_i, discounted_reward, look_ahead_done, look_ahead_state)
+        elif len(self.queue) == self.n_step:
+            discounted_reward = 0
+            look_ahead_done = False
+            look_ahead_state = next_state
+            for i in range(self.n_step-1, -1, -1):
+                discounted_reward = self.queue[i][2] + self.gamma * discounted_reward
+            state_i, action_i, reward_i, done_i, next_state_i = self.queue.pop(0)
+            super().store(state_i, action_i, discounted_reward, look_ahead_done, look_ahead_state)
+
 class SumTree(object):
     def __init__(self, capacity):
         self.capacity = capacity

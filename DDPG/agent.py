@@ -3,7 +3,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
 import numpy as np
-from replay_buffer import ReplayBuffer, ReplayBufferNStep, PriorityReplayBuffer
+from replay_buffer import ReplayBuffer, ReplayBufferNStep, PriorityReplayBuffer, PriorityReplayBufferNStep
 import os
 
 class DDPG:
@@ -13,7 +13,8 @@ class DDPG:
                  action_bound,
                  actor_lr,
                  critic_lr,
-                 gamma, tau,
+                 gamma,
+                 tau,
                  buffer_size,
                  batch_size,
                  n_step,
@@ -38,7 +39,7 @@ class DDPG:
         self.critic.summary()
         
         if priority_replay:
-            self.buffer = PriorityReplayBuffer(state_dim, action_dim, buffer_size, batch_size)
+            self.buffer = PriorityReplayBufferNStep(state_dim, action_dim, buffer_size, batch_size, n_step, gamma)
         else:
             self.buffer = ReplayBufferNStep(state_dim, action_dim, buffer_size, batch_size, n_step, gamma)
         self.summary_writer = summary_writer
