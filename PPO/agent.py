@@ -45,13 +45,13 @@ class Agent:
     def policy(self, state):
         state = tf.reshape(state, (1, self.state_dim)) # (1, state_dim)
         logits = self.actor(state) # (1, num_actions)
-        action = tf.squeeze(tf.random.categorical(logits, 1)) # (1, 1)
-        logprob = self._get_logprobabilities(logits, action) # (1, 1)
+        action = tf.squeeze(tf.random.categorical(logits, 1)) # scalar
+        logprob = tf.squeeze(self._get_logprobabilities(logits, action)) # scalar
         return action, logprob
     
     def store_transition(self, state, action, reward, logprob):
-        state = tf.reshape(state, (1, self.state_dim))
-        value = np.squeeze(self.critic(state).numpy())
+        state_tensor = tf.reshape(state, (1, self.state_dim)) # (1, state_dim)
+        value = np.squeeze(self.critic(state_tensor).numpy()) # scalar
         self.buffer.store(state, action, reward, value, logprob)
     
     def finish_trajectory(self, last_value):
@@ -85,16 +85,14 @@ class Agent:
             ratio = tf.exp(
                 self._get_logprobabilities(self.actor(state_buffer), action_buffer)
                 - logprobability_buffer
-            )
+            ) # (None, )
             min_advantage = tf.where(
                 advantage_buffer > 0,
                 (1 + self.clip_ratio) * advantage_buffer,
                 (1 - self.clip_ratio) * advantage_buffer,
-            )
-
-            loss = -tf.reduce_mean(
-                tf.minimum(ratio * advantage_buffer, min_advantage)
-            )
+            ) # (None, )
+            cost = tf.minimum(ratio * advantage_buffer, min_advantage) # (None, )
+            loss = -tf.reduce_mean(cost) # scalar
         grads = tape.gradient(loss, self.actor.trainable_variables)
         self.actor_opt.apply_gradients(zip(grads, self.actor.trainable_variables))
 
@@ -102,14 +100,14 @@ class Agent:
             logprobability_buffer
             - self._get_logprobabilities(self.actor(state_buffer), action_buffer)
         )
-        kl = tf.reduce_sum(kl)
         return kl
     
     @tf.function
     def _critic_learn(self, state_buffer, return_buffer):
         with tf.GradientTape() as tape:  # Record operations for automatic differentiation.
-            value_loss = tf.reduce_mean((return_buffer - self.critic(state_buffer)) ** 2)
-        grads = tape.gradient(value_loss, self.critic.trainable_variables)
+            cost = (return_buffer - self.critic(state_buffer)) ** 2 # (None, )
+            loss = tf.reduce_mean(cost) # scalar
+        grads = tape.gradient(loss, self.critic.trainable_variables)
         self.critic_opt.apply_gradients(zip(grads, self.critic.trainable_variables))
         
     def _build_actor(self):
@@ -136,5 +134,5 @@ class Agent:
         logprobability = tf.reduce_sum(
             tf.one_hot(a, self.num_actions) * logprobabilities_all, axis=1
         )
-        return logprobability # (None, 1)
+        return logprobability # (None,)
 

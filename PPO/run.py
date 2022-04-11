@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser("Playing gym's game of CartPole by PPO")
 parser.add_argument("--steps_per_epoch", type=int, default=4000)
 parser.add_argument("--epochs", type=int, default=30)
 parser.add_argument("--gamma", type=float, default=0.99)
-parser.add_argument("--lam", type=float, default=0.97)
+parser.add_argument("--lam", type=float, default=0.95)
 parser.add_argument("--clip_ratio", type=float, default=0.2)
 parser.add_argument("--actor_lr", type=float, default=3e-4)
 parser.add_argument("--critic_lr", type=float, default=1e-3)
@@ -75,7 +75,10 @@ def run():
             episode_length += 1
             
             if done or (t == args.steps_per_epoch - 1):
-                last_value = 0 if done else agent.critic(state.reshape(1, -1))
+                last_value = 0
+                if not done:
+                    state_tensor = tf.reshape(state, (1, state_dim))
+                    last_value = np.squeeze(agent.critic(state_tensor).numpy())
                 agent.finish_trajectory(last_value)
                 sum_return += episode_return
                 sum_length += episode_length
