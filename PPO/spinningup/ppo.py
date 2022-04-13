@@ -188,7 +188,7 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         for i in range(train_pi_iters):
             _, kl = sess.run([train_pi, approx_kl], feed_dict=inputs)
             if kl > 1.5 * target_kl:
-                print('Early stopping at step %d due to reaching max kl.'%i)
+                # print('Early stopping at step %d due to reaching max kl.'%i)
                 break
         for _ in range(train_v_iters):
             sess.run(train_v, feed_dict=inputs)
@@ -205,6 +205,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
         
         
         for t in range(steps_per_epoch):
+            if epoch % 100 == 1:
+                env.render()
             a, v_t, logp_t = sess.run(get_action_ops, feed_dict={x_ph: o.reshape(1,-1)})
 
             o2, r, d, _ = env.step(a[0])
@@ -245,8 +247,8 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--cpu', type=int, default=4)
-    parser.add_argument('--steps', type=int, default=4000)
-    parser.add_argument('--epochs', type=int, default=500)
+    parser.add_argument('--steps', type=int, default=200)
+    parser.add_argument('--epochs', type=int, default=5000)
     parser.add_argument('--exp_name', type=str, default='ppo')
     args = parser.parse_args()
 
