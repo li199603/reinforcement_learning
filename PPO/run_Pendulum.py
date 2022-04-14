@@ -71,8 +71,6 @@ def run():
             # Get the logits, action, and take one step in the environment
             action, logprob = agent.policy(state)
             action, logprob = action.numpy(), logprob.numpy()
-            # if not (-2.0 < float(action) < 2.0):
-            #     print(action)
             next_state, reward, done, _ = env.step(action)
             agent.store_transition(state, action, reward, logprob)
             state = next_state

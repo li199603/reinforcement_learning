@@ -7,9 +7,6 @@ from tensorboardX import SummaryWriter
 
 EPS = 1e-8
 
-# np.random.seed(2333)
-# tf.random.set_seed(2333)
-
 class Agent:
     def __init__(self,
                  state_dim,
@@ -172,14 +169,14 @@ class AgentContinuousAction:
         self.buffer = Buffer(state_dim, buffer_size, gamma, lam, action_dim)
         self.summary_writer = summary_writer
     
-    # @tf.function
+    @tf.function
     def policy(self, state):
         state = tf.reshape(state, (1, self.state_dim)) # (1, state_dim)
         mean, log_std = self.actor(state) # (1, action_dim)
         std = tf.math.exp(log_std) # (1, action_dim)
         action = mean + tf.random.normal(tf.shape(mean)) * std # (1, action_dim)
         
-        action = tf.clip_by_value(action, -self.action_bound, self.action_bound)
+        # action = tf.clip_by_value(action, -self.action_bound, self.action_bound)
         
         logprob = self._get_logprobabilities(mean, log_std, action) # (1,)
         action, logprob = tf.squeeze(action, axis=0), tf.squeeze(logprob, axis=0) # (action_dim, )  scalar
@@ -203,7 +200,6 @@ class AgentContinuousAction:
         
         # Update the policy and implement early stopping using KL divergence
         for _ in range(self.actor_learn_iterations):
-            # print(_)
             kl = self._actor_learn(state_buffer,
                                    action_buffer,
                                    logprobability_buffer,
@@ -216,25 +212,12 @@ class AgentContinuousAction:
         for _ in range(self.critic_learn_iterations):
             self._critic_learn(state_buffer, return_buffer)
     
-    # @tf.function
+    @tf.function
     def _actor_learn(self, state_buffer, action_buffer, logprobability_buffer, advantage_buffer):
         with tf.GradientTape() as tape:  # Record operations for automatic differentiation.
             mean, log_std = self.actor(state_buffer)
-            
             log_prob = self._get_logprobabilities(mean, log_std, action_buffer)
-            ratio = tf.exp(
-                log_prob
-                - logprobability_buffer
-            ) # (None, )
-            # ratio = tf.clip_by_value(ratio, 0.01, 10)
-            
-            # ratio = tf.exp(
-            #     self._get_logprobabilities(mean, log_std, action_buffer)
-            #     - logprobability_buffer
-            # ) # (None, )
-            
-            
-            
+            ratio = tf.exp(log_prob - logprobability_buffer) # (None, )
             min_advantage = tf.where(
                 advantage_buffer > 0,
                 (1 + self.clip_ratio) * advantage_buffer,
@@ -243,72 +226,14 @@ class AgentContinuousAction:
             cost = tf.minimum(ratio * advantage_buffer, min_advantage) # (None, )
             loss = -tf.reduce_mean(cost) # scalar
         grads = tape.gradient(loss, self.actor.trainable_variables)
-        tmp = [tf.math.reduce_all(tf.math.is_finite(grads[i])) for i in range(len(grads))]
-        if not tf.math.reduce_all(tmp):
-            if not tf.math.reduce_all(tf.math.is_finite(cost)):
-                print("cost")
-                print(cost.numpy()[31:37])
-            if not tf.math.reduce_all(tf.math.is_finite(min_advantage)):
-                print("min_advantage")
-            if not tf.math.reduce_all(tf.math.is_finite(ratio)):
-                print("ratio")
-                print(ratio.numpy()[31:37])
-                print(log_prob.numpy()[31:37])
-                print(logprobability_buffer[31:37])
-                print((log_prob - logprobability_buffer)[31:37])
-                print("****************")
-                print(mean.numpy()[31:37])
-                print(log_std.numpy()[31:37])
-                print(log_prob.numpy()[31:37])
-                print(logprobability_buffer[31:37])
-                print(action_buffer[31:37])
-                
-            if not tf.math.reduce_all(tf.math.is_finite(log_prob)):
-                print("log_prob")
-                print(log_prob.numpy()[31:37])
-            if not tf.math.reduce_all(tf.math.is_finite(advantage_buffer)):
-                print("advantage_buffer")
-            if not tf.math.reduce_all(tf.math.is_finite(logprobability_buffer)):
-                print("logprobability_buffer")
-            if not tf.math.reduce_all(tf.math.is_finite(mean)):
-                print("mean")  
-            if not tf.math.reduce_all(tf.math.is_finite(log_std)):
-                print("log_std")
-            
-            
-            tmp1 = [tf.math.reduce_all(tf.math.is_finite(self.actor.trainable_variables[i])) for i in range(len(self.actor.trainable_variables))]
-            if not tf.math.reduce_all(tmp1):
-            
-            # tmp1 = [tf.math.reduce_any(tf.math.is_nan(self.actor.trainable_variables[i])) for i in range(len(self.actor.trainable_variables))]
-            # if tf.math.reduce_any(tmp1):
-                print(222)
-                print(tmp1)
-                exit()
-            
-            
-            # if tf.math.reduce_any(tf.math.is_nan(cost)):
-            #     print("**")
-            #     print(cost)
-            # print(log_prob[:3].numpy())
-            # print(mean[:3].numpy())
-            # print(log_std[:3].numpy())
-            # print(state_buffer[:3])
-            print(111)
-            print(grads[0][0,:3])
-            print(loss)
-            exit()
-            
-            # exit()
         self.actor_opt.apply_gradients(zip(grads, self.actor.trainable_variables))
 
         mean, log_std = self.actor(state_buffer)
-        kl = tf.reduce_mean(
-            logprobability_buffer
-            - self._get_logprobabilities(mean, log_std, action_buffer)
-        )
+        log_prob = self._get_logprobabilities(mean, log_std, action_buffer)
+        kl = tf.reduce_mean(logprobability_buffer - log_prob)
         return kl
     
-    # @tf.function
+    @tf.function
     def _critic_learn(self, state_buffer, return_buffer):
         with tf.GradientTape() as tape:  # Record operations for automatic differentiation.
             cost = (return_buffer - self.critic(state_buffer)) ** 2 # (None, )
@@ -319,7 +244,7 @@ class AgentContinuousAction:
     def _build_actor(self):
         inputs = layers.Input(shape=(self.state_dim,), dtype=tf.float32)
         x = layers.Dense(64, "tanh")(inputs)
-        # x = layers.Dense(128, "tanh")(x)
+        x = layers.Dense(128, "tanh")(x)
         x = layers.Dense(64, "tanh")(x)
         mean = layers.Dense(self.action_dim)(x)
         mean = layers.multiply([mean, self.action_bound * 0.8])
@@ -330,7 +255,7 @@ class AgentContinuousAction:
     def _build_critic(self):
         inputs = layers.Input(shape=(self.state_dim,), dtype=tf.float32)
         x = layers.Dense(64, "tanh")(inputs)
-        # x = layers.Dense(128, "tanh")(x)
+        x = layers.Dense(128, "tanh")(x)
         x = layers.Dense(64, "tanh")(x)
         outputs = layers.Dense(1, name="state_value")(x)
         outputs = tf.squeeze(outputs, axis=1)
