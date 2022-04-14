@@ -73,14 +73,14 @@ class PPO(object):
         with tf.variable_scope('atrain'):
             self.atrain_op = tf.train.AdamOptimizer(A_LR).minimize(self.aloss)
 
-        tf.summary.FileWriter("log/", self.sess.graph)
+        # tf.summary.FileWriter("log/", self.sess.graph)
 
         self.sess.run(tf.global_variables_initializer())
 
     def update(self, s, a, r):
         self.sess.run(self.update_oldpi_op)
         adv = self.sess.run(self.advantage, {self.tfs: s, self.tfdc_r: r})
-        # adv = (adv - adv.mean())/(adv.std()+1e-6)     # sometimes helpful
+        adv = (adv - adv.mean())/(adv.std()+1e-6)     # sometimes helpful
 
         # update actor
         if METHOD['name'] == 'kl_pen':

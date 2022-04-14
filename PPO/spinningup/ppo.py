@@ -142,6 +142,10 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             the current policy and value function.
     """
     env = env_fn()
+    
+    env.seed(seed)
+    np.random.seed(seed)
+    
     obs_dim = env.observation_space.shape
     act_dim = env.action_space.shape
     
@@ -245,7 +249,7 @@ if __name__ == '__main__':
     parser.add_argument('--hid', type=int, default=64)
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--seed', '-s', type=int, default=0)
+    # parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--cpu', type=int, default=4)
     parser.add_argument('--steps', type=int, default=200)
     parser.add_argument('--epochs', type=int, default=5000)
@@ -258,4 +262,4 @@ if __name__ == '__main__':
     
     ppo(lambda : gym.make(args.env), actor_critic=core.mlp_actor_critic,
         ac_kwargs=dict(hidden_sizes=[256, 256, 64]), gamma=args.gamma, 
-        seed=args.seed, steps_per_epoch=args.steps, epochs=args.epochs)
+        seed=44, steps_per_epoch=args.steps, epochs=args.epochs)

@@ -7,10 +7,13 @@ def discounted_cumulative_sums(x, discount):
 
 class Buffer:
     # Buffer for storing trajectories
-    def __init__(self, state_dim, buffer_size, gamma=0.99, lam=0.95):
+    def __init__(self, state_dim, buffer_size, gamma=0.99, lam=0.95, action_dim=None):
         # Buffer initialization
         self.state_buffer = np.zeros((buffer_size, state_dim), dtype=np.float32)
-        self.action_buffer = np.zeros(buffer_size, dtype=np.int32)
+        if action_dim is not None:
+            self.action_buffer = np.zeros((buffer_size, action_dim), dtype=np.float32)
+        else:
+            self.action_buffer = np.zeros(buffer_size, dtype=np.int32)
         self.advantage_buffer = np.zeros(buffer_size, dtype=np.float32)
         self.reward_buffer = np.zeros(buffer_size, dtype=np.float32)
         self.return_buffer = np.zeros(buffer_size, dtype=np.float32)
