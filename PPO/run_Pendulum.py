@@ -11,24 +11,25 @@ np.random.seed(SEED)
 tf.random.set_seed(SEED)
 
 parser = argparse.ArgumentParser("Playing gym's game of CartPole by PPO")
-parser.add_argument("--steps_per_epoch", type=int, default=200)
+parser.add_argument("--steps_per_epoch", type=int, default=500)
 parser.add_argument("--epochs", type=int, default=1000)
 parser.add_argument("--gamma", type=float, default=0.99)
 parser.add_argument("--lam", type=float, default=0.95)
 parser.add_argument("--clip_ratio", type=float, default=0.2)
-parser.add_argument("--actor_lr", type=float, default=2e-3)
+parser.add_argument("--actor_lr", type=float, default=2e-4)
 parser.add_argument("--critic_lr", type=float, default=1e-3)
-parser.add_argument("--actor_learn_iterations", type=int, default=80)
-parser.add_argument("--critic_learn_iterations", type=int, default=80)
+parser.add_argument("--actor_learn_iterations", type=int, default=10)
+parser.add_argument("--critic_learn_iterations", type=int, default=10)
 parser.add_argument("--target_kl", type=float, default=0.01)
 parser.add_argument("--render", action="store_true")
+parser.add_argument("--ep_len", type=int, default=128)
 args = parser.parse_args()
 
 
 def run():
     # Initialize the environment and get the dimensionality of the
     # observation space and the number of possible actions
-    env = gym.make("Pendulum-v1")
+    env = gym.make("Pendulum-v1").unwrapped
     env.seed(SEED)
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.shape[0]
@@ -71,17 +72,17 @@ def run():
             # Get the logits, action, and take one step in the environment
             action, logprob = agent.policy(state)
             action, logprob = action.numpy(), logprob.numpy()
-            next_state, reward, done, _ = env.step(action)
+            next_state, reward, _, _ = env.step(action)
             agent.store_transition(state, action, reward, logprob)
+            print(state, action, reward, logprob)
+            exit(0)
             state = next_state
             episode_return += reward
             episode_length += 1
             
-            if done or (t == args.steps_per_epoch - 1):
-                last_value = 0
-                if not done:
-                    state_tensor = tf.reshape(state, (1, state_dim))
-                    last_value = np.squeeze(agent.critic(state_tensor).numpy())
+            if ((t+1) % args.ep_len == 0) or (t == args.steps_per_epoch - 1):
+                state_tensor = tf.reshape(state, (1, state_dim))
+                last_value = np.squeeze(agent.critic(state_tensor).numpy())
                 agent.finish_trajectory(last_value)
                 sum_return += episode_return
                 sum_length += episode_length

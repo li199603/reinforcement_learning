@@ -1,11 +1,16 @@
+from random import seed
 import numpy as np
 import tensorflow as tf
+import tensorflow_probability as tfp
 import tensorflow.keras as keras
 from tensorflow.keras import layers
 from buffer import Buffer
 from tensorboardX import SummaryWriter
 
 EPS = 1e-8
+SEED = 7
+np.random.seed(SEED)
+tf.random.set_seed(SEED)
 
 class Agent:
     def __init__(self,
@@ -110,7 +115,7 @@ class Agent:
         
     def _build_actor(self):
         inputs = layers.Input(shape=(self.state_dim,), dtype=tf.float32)
-        x = layers.Dense(64, "tanh")(inputs)
+        x = layers.Dense(64, "tanh", kernel_initializer=keras.initializers.GlorotUniform(SEED))(inputs)
         x = layers.Dense(64, "tanh")(x)
         outputs = layers.Dense(self.num_actions, name="logits")(x)
         model = keras.Model(inputs, outputs)
@@ -168,24 +173,37 @@ class AgentContinuousAction:
         
         self.buffer = Buffer(state_dim, buffer_size, gamma, lam, action_dim)
         self.summary_writer = summary_writer
+        
+        self.init_params()
+        print(self.a_params[0][1, :5])
+        
+        
+    def init_params(self):
+        tmp = tf.random.uniform((10, 20), -0.1, 0.1, seed=SEED)
+        print(tmp[5, :5])
+        print("***")
+        self.a_params = self.actor.trainable_variables
+        [a_p.assign(tf.random.uniform(a_p.shape, -0.1, 0.1, seed=SEED)) for a_p in self.a_params]
+        self.c_params = self.critic.trainable_variables
+        [c_p.assign(tf.random.uniform(c_p.shape, -0.1, 0.1, seed=SEED)) for c_p in self.c_params]
+        
     
     @tf.function
     def policy(self, state):
         state = tf.reshape(state, (1, self.state_dim)) # (1, state_dim)
-        mean, log_std = self.actor(state) # (1, action_dim)
-        std = tf.math.exp(log_std) # (1, action_dim)
-        action = mean + tf.random.normal(tf.shape(mean)) * std # (1, action_dim)
-        
-        # action = tf.clip_by_value(action, -self.action_bound, self.action_bound)
-        
-        logprob = self._get_logprobabilities(mean, log_std, action) # (1,)
-        action, logprob = tf.squeeze(action, axis=0), tf.squeeze(logprob, axis=0) # (action_dim, )  scalar
-        return action, logprob
+        mean, std = self.actor(state) # (1, action_dim)
+        norm_dist = tfp.distributions.Normal(loc=mean, scale=std)
+        action = norm_dist.sample(seed=SEED) # (1, action_dim)
+        prob = norm_dist.prob(action) # (1,)
+        action, prob = tf.squeeze(action, axis=0), tf.squeeze(prob, axis=0) # (action_dim, )  scalar
+        action = tf.clip_by_value(action, -self.action_bound, self.action_bound)
+        # print(mean, std)
+        return action, prob
     
-    def store_transition(self, state, action, reward, logprob):
+    def store_transition(self, state, action, reward, prob):
         state_tensor = tf.reshape(state, (1, self.state_dim)) # (1, state_dim)
         value = np.squeeze(self.critic(state_tensor).numpy()) # scalar
-        self.buffer.store(state, action, reward, value, logprob)
+        self.buffer.store(state, action, reward, value, prob)
     
     def finish_trajectory(self, last_value):
         self.buffer.finish_trajectory(last_value)
@@ -195,17 +213,18 @@ class AgentContinuousAction:
          action_buffer,
          advantage_buffer,
          return_buffer,
-         logprobability_buffer,
+         probability_buffer,
         ) = self.buffer.get()
         
         # Update the policy and implement early stopping using KL divergence
         for _ in range(self.actor_learn_iterations):
             kl = self._actor_learn(state_buffer,
                                    action_buffer,
-                                   logprobability_buffer,
+                                   probability_buffer,
                                    advantage_buffer)
             if kl > 1.5 * self.target_kl:
                 # Early Stopping
+                print("Early Stopping")
                 break
 
         # Update the value function
@@ -213,11 +232,11 @@ class AgentContinuousAction:
             self._critic_learn(state_buffer, return_buffer)
     
     @tf.function
-    def _actor_learn(self, state_buffer, action_buffer, logprobability_buffer, advantage_buffer):
+    def _actor_learn(self, state_buffer, action_buffer, probability_buffer, advantage_buffer):
         with tf.GradientTape() as tape:  # Record operations for automatic differentiation.
-            mean, log_std = self.actor(state_buffer)
-            log_prob = self._get_logprobabilities(mean, log_std, action_buffer)
-            ratio = tf.exp(log_prob - logprobability_buffer) # (None, )
+            mean, std = self.actor(state_buffer)
+            prob = self._get_probabilities(mean, std, action_buffer)
+            ratio = prob / (probability_buffer + EPS)
             min_advantage = tf.where(
                 advantage_buffer > 0,
                 (1 + self.clip_ratio) * advantage_buffer,
@@ -228,9 +247,11 @@ class AgentContinuousAction:
         grads = tape.gradient(loss, self.actor.trainable_variables)
         self.actor_opt.apply_gradients(zip(grads, self.actor.trainable_variables))
 
-        mean, log_std = self.actor(state_buffer)
-        log_prob = self._get_logprobabilities(mean, log_std, action_buffer)
-        kl = tf.reduce_mean(logprobability_buffer - log_prob)
+        mean, std = self.actor(state_buffer)
+        prob = self._get_probabilities(mean, std, action_buffer)
+        kl = tf.reduce_mean(
+            tf.math.log(probability_buffer) - tf.math.log(prob)
+        )
         return kl
     
     @tf.function
@@ -243,29 +264,25 @@ class AgentContinuousAction:
         
     def _build_actor(self):
         inputs = layers.Input(shape=(self.state_dim,), dtype=tf.float32)
-        x = layers.Dense(64, "tanh")(inputs)
-        x = layers.Dense(128, "tanh")(x)
-        x = layers.Dense(64, "tanh")(x)
-        mean = layers.Dense(self.action_dim)(x)
-        mean = layers.multiply([mean, self.action_bound * 0.8])
-        log_std = layers.Dense(self.action_dim)(inputs)
-        model = keras.Model(inputs, [mean, log_std])
+        x = layers.Dense(100, "relu")(inputs)
+        mean = layers.Dense(self.action_dim, "tanh")(x)
+        mean = layers.multiply([mean, self.action_bound])
+        std = layers.Dense(self.action_dim, "softplus")(x)
+        model = keras.Model(inputs, [mean, std])
         return model
     
     def _build_critic(self):
         inputs = layers.Input(shape=(self.state_dim,), dtype=tf.float32)
-        x = layers.Dense(64, "tanh")(inputs)
-        x = layers.Dense(128, "tanh")(x)
-        x = layers.Dense(64, "tanh")(x)
+        x = layers.Dense(100, "tanh")(inputs)
         outputs = layers.Dense(1, name="state_value")(x)
         outputs = tf.squeeze(outputs, axis=1)
         model = keras.Model(inputs, outputs)
         return model
     
     @tf.function
-    def _get_logprobabilities(self, mean, log_std, x):
-        logprob = -0.5 * (((x-mean)/(tf.math.exp(log_std)+EPS))**2 + 2*log_std + tf.math.log(2*np.pi)) # (None, action_dim)
-        logprob = tf.reduce_sum(logprob, axis=1) # (None, )
-        return logprob
+    def _get_probabilities(self, mean, std, x):
+        norm_dist = tfp.distributions.Normal(loc=mean, scale=std)
+        prob = norm_dist.prob(x)
+        return prob # (None, )
         
 

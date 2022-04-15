@@ -10,9 +10,11 @@ gym 0.9.2
 """
 
 import tensorflow.compat.v1 as tf
+import tensorflow as tf2
 import numpy as np
 import matplotlib.pyplot as plt
 import gym
+import tensorflow_probability as tfp
 tf.disable_eager_execution()
 
 EP_MAX = 1000
@@ -24,11 +26,15 @@ BATCH = 128
 A_UPDATE_STEPS = 10
 C_UPDATE_STEPS = 10
 S_DIM, A_DIM = 3, 1
+SEED = 7
 METHOD = [
     dict(name='kl_pen', kl_target=0.01, lam=0.5),   # KL penalty
     dict(name='clip', epsilon=0.2),                 # Clipped surrogate objective, find this is better
 ][1]        # choose the method for optimization
 
+np.random.seed(SEED)
+tf2.random.set_seed(SEED)
+tf.set_random_seed(SEED)
 
 class PPO(object):
 
@@ -49,7 +55,7 @@ class PPO(object):
         pi, pi_params = self._build_anet('pi', trainable=True)
         oldpi, oldpi_params = self._build_anet('oldpi', trainable=False)
         with tf.variable_scope('sample_action'):
-            self.sample_op = tf.squeeze(pi.sample(1), axis=0)       # choosing action
+            self.sample_op = tf.squeeze(pi.sample(1, seed=SEED), axis=0)       # choosing action
         with tf.variable_scope('update_oldpi'):
             self.update_oldpi_op = [oldp.assign(p) for p, oldp in zip(pi_params, oldpi_params)]
 
@@ -62,7 +68,7 @@ class PPO(object):
                 surr = ratio * self.tfadv
             if METHOD['name'] == 'kl_pen':
                 self.tflam = tf.placeholder(tf.float32, None, 'lambda')
-                kl = tf.distributions.kl_divergence(oldpi, pi)
+                kl = tfp.distributions.kl_divergence(oldpi, pi)
                 self.kl_mean = tf.reduce_mean(kl)
                 self.aloss = -(tf.reduce_mean(surr - self.tflam * kl))
             else:   # clipping method, find this is better
@@ -72,10 +78,27 @@ class PPO(object):
 
         with tf.variable_scope('atrain'):
             self.atrain_op = tf.train.AdamOptimizer(A_LR).minimize(self.aloss)
-
-        # tf.summary.FileWriter("log/", self.sess.graph)
-
+        
         self.sess.run(tf.global_variables_initializer())
+        self.params_init()
+        self.sess.run(self.update_oldpi_op)
+        
+        print(self.sess.run(self.c_params[0])[1, :5])
+        
+    def params_init(self):
+        # 参数测试
+        tmp = tf2.random.uniform((10, 20), -0.1, 0.1, seed=SEED)
+        print(self.sess.run(tmp[5, :5]))
+        print("***")
+        self.a_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="pi")
+        with tf.variable_scope('a_init'):
+            a_init = [a_p.assign(tf2.random.uniform(a_p.shape, -0.1, 0.1, seed=SEED)) for a_p in self.a_params]
+            
+        self.c_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="critic")
+        with tf.variable_scope('c_init'):
+            c_init = [c_p.assign(tf2.random.uniform(c_p.shape, -0.1, 0.1, seed=SEED)) for c_p in self.c_params]
+        
+        self.sess.run([a_init, c_init])
 
     def update(self, s, a, r):
         self.sess.run(self.update_oldpi_op)
@@ -104,15 +127,16 @@ class PPO(object):
     def _build_anet(self, name, trainable):
         with tf.variable_scope(name):
             l1 = tf.layers.dense(self.tfs, 100, tf.nn.relu, trainable=trainable)
-            mu = 2 * tf.layers.dense(l1, A_DIM, tf.nn.tanh, trainable=trainable)
-            sigma = tf.layers.dense(l1, A_DIM, tf.nn.softplus, trainable=trainable)
-            norm_dist = tf.distributions.Normal(loc=mu, scale=sigma)
+            self.mu = 2 * tf.layers.dense(l1, A_DIM, tf.nn.tanh, trainable=trainable)
+            self.sigma = tf.layers.dense(l1, A_DIM, tf.nn.softplus, trainable=trainable)
+            norm_dist = tfp.distributions.Normal(loc=self.mu, scale=self.sigma)
         params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=name)
         return norm_dist, params
 
     def choose_action(self, s):
         s = s[np.newaxis, :]
-        a = self.sess.run(self.sample_op, {self.tfs: s})[0]
+        a, tmp_mu, tmp_sigma = self.sess.run([self.sample_op, self.mu, self.sigma], {self.tfs: s})
+        print(tmp_mu, tmp_sigma)
         return np.clip(a, -2, 2)
 
     def get_v(self, s):
@@ -120,6 +144,7 @@ class PPO(object):
         return self.sess.run(self.v, {self.tfs: s})[0, 0]
 
 env = gym.make('Pendulum-v1').unwrapped
+env.seed(SEED)
 ppo = PPO()
 all_ep_r = []
 
@@ -128,10 +153,12 @@ for ep in range(EP_MAX):
     buffer_s, buffer_a, buffer_r = [], [], []
     ep_r = 0
     for t in range(EP_LEN):    # in one episode
-        if ep % 100 == 1:
+        if ep % 100 == 1 or ep >= EP_MAX - 10:
             env.render()
         a = ppo.choose_action(s)
         s_, r, done, _ = env.step(a)
+        print(s, a, r)
+        exit(0)
         buffer_s.append(s)
         buffer_a.append(a)
         buffer_r.append((r+8)/8)    # normalize reward, find to be useful

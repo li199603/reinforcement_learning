@@ -9,6 +9,7 @@ class Buffer:
     # Buffer for storing trajectories
     def __init__(self, state_dim, buffer_size, gamma=0.99, lam=0.95, action_dim=None):
         # Buffer initialization
+        self.buffer_size = buffer_size
         self.state_buffer = np.zeros((buffer_size, state_dim), dtype=np.float32)
         if action_dim is not None:
             self.action_buffer = np.zeros((buffer_size, action_dim), dtype=np.float32)
@@ -50,6 +51,7 @@ class Buffer:
 
     def get(self):
         # Get all data of the buffer and normalize the advantages
+        assert self.pointer == self.buffer_size # buffer has to be full before you can get
         self.pointer, self.trajectory_start_index = 0, 0
         advantage_mean, advantage_std = (
             np.mean(self.advantage_buffer),

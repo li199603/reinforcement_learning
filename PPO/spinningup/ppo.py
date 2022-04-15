@@ -226,7 +226,8 @@ def ppo(env_fn, actor_critic=core.mlp_actor_critic, ac_kwargs=dict(), seed=0,
             terminal = d or (ep_len == max_ep_len)
             if terminal or (t==steps_per_epoch-1):
                 if not(terminal):
-                    print('Warning: trajectory cut off by epoch at %d steps.'%ep_len)
+                    # print('Warning: trajectory cut off by epoch at %d steps.'%ep_len)
+                    pass
                 # if trajectory didn't reach terminal state, bootstrap value target
                 last_val = 0 if d else sess.run(v, feed_dict={x_ph: o.reshape(1,-1)})
                 buf.finish_path(last_val)
@@ -251,7 +252,7 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=float, default=0.99)
     # parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--cpu', type=int, default=4)
-    parser.add_argument('--steps', type=int, default=200)
+    parser.add_argument('--steps', type=int, default=128)
     parser.add_argument('--epochs', type=int, default=5000)
     parser.add_argument('--exp_name', type=str, default='ppo')
     args = parser.parse_args()
