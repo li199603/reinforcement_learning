@@ -17,16 +17,17 @@ import gym
 import tensorflow_probability as tfp
 tf.disable_eager_execution()
 
-EP_MAX = 1000
-EP_LEN = 200
+EP_MAX = 2000
+# EP_LEN = 200
 GAMMA = 0.9
 A_LR = 0.0001
 C_LR = 0.0002
 BATCH = 128
-A_UPDATE_STEPS = 10
-C_UPDATE_STEPS = 10
+A_UPDATE_STEPS = 1
+C_UPDATE_STEPS = 1
 S_DIM, A_DIM = 3, 1
 SEED = 7
+EPS = 1e-8
 METHOD = [
     dict(name='kl_pen', kl_target=0.01, lam=0.5),   # KL penalty
     dict(name='clip', epsilon=0.2),                 # Clipped surrogate objective, find this is better
@@ -55,7 +56,7 @@ class PPO(object):
         pi, pi_params = self._build_anet('pi', trainable=True)
         oldpi, oldpi_params = self._build_anet('oldpi', trainable=False)
         with tf.variable_scope('sample_action'):
-            self.sample_op = tf.squeeze(pi.sample(1, seed=SEED), axis=0)       # choosing action
+            self.sample_op = tf.squeeze(pi.sample(seed=SEED), axis=0)       # choosing action
         with tf.variable_scope('update_oldpi'):
             self.update_oldpi_op = [oldp.assign(p) for p, oldp in zip(pi_params, oldpi_params)]
 
@@ -64,17 +65,17 @@ class PPO(object):
         with tf.variable_scope('loss'):
             with tf.variable_scope('surrogate'):
                 # ratio = tf.exp(pi.log_prob(self.tfa) - oldpi.log_prob(self.tfa))
-                ratio = pi.prob(self.tfa) / (oldpi.prob(self.tfa) + 1e-5)
-                surr = ratio * self.tfadv
+                self.ratio = pi.prob(self.tfa) / (oldpi.prob(self.tfa) + EPS)
+                surr = self.ratio * self.tfadv
             if METHOD['name'] == 'kl_pen':
                 self.tflam = tf.placeholder(tf.float32, None, 'lambda')
                 kl = tfp.distributions.kl_divergence(oldpi, pi)
                 self.kl_mean = tf.reduce_mean(kl)
                 self.aloss = -(tf.reduce_mean(surr - self.tflam * kl))
             else:   # clipping method, find this is better
-                self.aloss = -tf.reduce_mean(tf.minimum(
-                    surr,
-                    tf.clip_by_value(ratio, 1.-METHOD['epsilon'], 1.+METHOD['epsilon'])*self.tfadv))
+                self.min_advantage = tf.clip_by_value(self.ratio, 1.-METHOD['epsilon'], 1.+METHOD['epsilon'])*self.tfadv
+                self.cost = tf.minimum(surr, self.min_advantage)
+                self.aloss = -tf.reduce_mean(self.cost)
 
         with tf.variable_scope('atrain'):
             self.atrain_op = tf.train.AdamOptimizer(A_LR).minimize(self.aloss)
@@ -83,27 +84,41 @@ class PPO(object):
         self.params_init()
         self.sess.run(self.update_oldpi_op)
         
-        print(self.sess.run(self.c_params[0])[1, :5])
-        
     def params_init(self):
         # 参数测试
-        tmp = tf2.random.uniform((10, 20), -0.1, 0.1, seed=SEED)
-        print(self.sess.run(tmp[5, :5]))
-        print("***")
+        all_params = np.random.uniform(-0.1, 0.1, 400)
+        print("***** all_params *****")
+        print("sum: %.5f, head: %.5f, end: %.5f" % (np.sum(all_params), all_params[0], all_params[1]))
+        print("***** all_params - end *****")
+        all_params = tf2.convert_to_tensor(all_params, tf2.float32)
+        def get_params(shape):
+            num = 1
+            for d in shape:
+                num *= d
+            return tf2.reshape(all_params[:num], shape)
+        
         self.a_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="pi")
         with tf.variable_scope('a_init'):
-            a_init = [a_p.assign(tf2.random.uniform(a_p.shape, -0.1, 0.1, seed=SEED)) for a_p in self.a_params]
+            a_init = [a_p.assign(get_params(a_p.shape)) for a_p in self.a_params]
             
         self.c_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="critic")
         with tf.variable_scope('c_init'):
-            c_init = [c_p.assign(tf2.random.uniform(c_p.shape, -0.1, 0.1, seed=SEED)) for c_p in self.c_params]
+            c_init = [c_p.assign(get_params(c_p.shape)) for c_p in self.c_params]
         
         self.sess.run([a_init, c_init])
 
     def update(self, s, a, r):
         self.sess.run(self.update_oldpi_op)
-        adv = self.sess.run(self.advantage, {self.tfs: s, self.tfdc_r: r})
-        adv = (adv - adv.mean())/(adv.std()+1e-6)     # sometimes helpful
+        adv, v = self.sess.run([self.advantage, self.v], {self.tfs: s, self.tfdc_r: r})
+        adv = (adv - adv.mean())/(adv.std())     # sometimes helpful
+        
+        # print("***** s a adv r p *****")
+        print(s[:3])
+        print(a[3:6])
+        print(adv[88:96])
+        print(r[66:69])
+        print(v[:3])
+        # exit(0)
 
         # update actor
         if METHOD['name'] == 'kl_pen':
@@ -119,8 +134,20 @@ class PPO(object):
                 METHOD['lam'] *= 2
             METHOD['lam'] = np.clip(METHOD['lam'], 1e-4, 10)    # sometimes explode, this clipping is my solution
         else:   # clipping method, find this is better (OpenAI's paper)
+            loss, rartio, cost, min_advantage = \
+                self.sess.run([self.aloss, self.ratio, self.cost, self.min_advantage], 
+                            {self.tfs: s, self.tfa: a, self.tfadv: adv})
+            print(loss)
+            print(rartio[88:96])
+            print(cost[88:96])
+            print(min_advantage[88:96])
+            print(len(cost))
+            print(np.sum(adv) / 128)
+            exit(0)
             [self.sess.run(self.atrain_op, {self.tfs: s, self.tfa: a, self.tfadv: adv}) for _ in range(A_UPDATE_STEPS)]
 
+            
+            
         # update critic
         [self.sess.run(self.ctrain_op, {self.tfs: s, self.tfdc_r: r}) for _ in range(C_UPDATE_STEPS)]
 
@@ -136,7 +163,8 @@ class PPO(object):
     def choose_action(self, s):
         s = s[np.newaxis, :]
         a, tmp_mu, tmp_sigma = self.sess.run([self.sample_op, self.mu, self.sigma], {self.tfs: s})
-        print(tmp_mu, tmp_sigma)
+        print("state: ", s[0])
+        print("mean: %.5f, std: %.5f, action: %.5f" %(tmp_mu, tmp_sigma, a))
         return np.clip(a, -2, 2)
 
     def get_v(self, s):
@@ -152,13 +180,15 @@ for ep in range(EP_MAX):
     s = env.reset()
     buffer_s, buffer_a, buffer_r = [], [], []
     ep_r = 0
-    for t in range(EP_LEN):    # in one episode
+    for t in range(BATCH):    # in one episode
+        print("****** %d ******" % t)
         if ep % 100 == 1 or ep >= EP_MAX - 10:
             env.render()
         a = ppo.choose_action(s)
         s_, r, done, _ = env.step(a)
-        print(s, a, r)
-        exit(0)
+        print("reward: %.5f" % r)
+        if ep == 1 and t == 4:
+                exit(0)
         buffer_s.append(s)
         buffer_a.append(a)
         buffer_r.append((r+8)/8)    # normalize reward, find to be useful
@@ -166,7 +196,7 @@ for ep in range(EP_MAX):
         ep_r += r
 
         # update ppo
-        if (t+1) % BATCH == 0 or t == EP_LEN-1:
+        if t == BATCH - 1:
             v_s_ = ppo.get_v(s_)
             discounted_r = []
             for r in buffer_r[::-1]:

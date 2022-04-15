@@ -11,13 +11,13 @@ np.random.seed(SEED)
 tf.random.set_seed(SEED)
 
 parser = argparse.ArgumentParser("Playing gym's game of CartPole by PPO")
-parser.add_argument("--steps_per_epoch", type=int, default=500)
-parser.add_argument("--epochs", type=int, default=1000)
-parser.add_argument("--gamma", type=float, default=0.99)
-parser.add_argument("--lam", type=float, default=0.95)
+parser.add_argument("--steps_per_epoch", type=int, default=128)
+parser.add_argument("--epochs", type=int, default=2000)
+parser.add_argument("--gamma", type=float, default=0.9)
+parser.add_argument("--lam", type=float, default=1)
 parser.add_argument("--clip_ratio", type=float, default=0.2)
-parser.add_argument("--actor_lr", type=float, default=2e-4)
-parser.add_argument("--critic_lr", type=float, default=1e-3)
+parser.add_argument("--actor_lr", type=float, default=0.0001)
+parser.add_argument("--critic_lr", type=float, default=0.0002)
 parser.add_argument("--actor_learn_iterations", type=int, default=10)
 parser.add_argument("--critic_learn_iterations", type=int, default=10)
 parser.add_argument("--target_kl", type=float, default=0.01)
@@ -66,6 +66,7 @@ def run():
 
         # Iterate over the steps of each epoch
         for t in range(args.steps_per_epoch):
+            # print("****** %d ******" % t)
             if epoch % 100 == 1:
                 env.render()
 
@@ -73,14 +74,15 @@ def run():
             action, logprob = agent.policy(state)
             action, logprob = action.numpy(), logprob.numpy()
             next_state, reward, _, _ = env.step(action)
-            agent.store_transition(state, action, reward, logprob)
-            print(state, action, reward, logprob)
-            exit(0)
+            # print("reward: %.5f" % reward)
+            agent.store_transition(state, action, (reward+8)/8, logprob)
+            # if epoch == 1 and t == 4:
+            #     exit(0)
             state = next_state
             episode_return += reward
             episode_length += 1
             
-            if ((t+1) % args.ep_len == 0) or (t == args.steps_per_epoch - 1):
+            if (t == args.steps_per_epoch - 1):
                 state_tensor = tf.reshape(state, (1, state_dim))
                 last_value = np.squeeze(agent.critic(state_tensor).numpy())
                 agent.finish_trajectory(last_value)
@@ -90,6 +92,7 @@ def run():
                 state, episode_return, episode_length = env.reset(), 0, 0
                 
         agent.learn()
+        
         # Print mean return and length for each epoch
         print(
             f" Epoch: {epoch + 1}. Mean Return: {sum_return / num_episodes}. Mean Length: {sum_length / num_episodes}"
