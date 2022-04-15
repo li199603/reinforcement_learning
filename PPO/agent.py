@@ -168,30 +168,30 @@ class AgentContinuousAction:
         self.critic = self._build_critic()
         self.critic_opt = keras.optimizers.Adam(critic_lr)
         self.actor_opt = keras.optimizers.Adam(actor_lr)
-        # self.actor.summary()
-        # self.critic.summary()
+        self.actor.summary()
+        self.critic.summary()
         
         self.buffer = Buffer(state_dim, buffer_size, gamma, lam, action_dim)
         self.summary_writer = summary_writer
         
-        self.init_params()
+        # self.init_params()
         
         
-    def init_params(self):
-        all_params = np.random.uniform(-0.1, 0.1, 400)
-        # print("***** all_params *****")
-        # print("sum: %.5f, head: %.5f, end: %.5f" % (np.sum(all_params), all_params[0], all_params[1]))
-        # print("***** all_params - end *****")
-        all_params = tf.convert_to_tensor(all_params, tf.float32)
-        def get_params(shape):
-            num = 1
-            for d in shape:
-                num *= d
-            return tf.reshape(all_params[:num], shape)
-        self.a_params = self.actor.trainable_variables
-        [a_p.assign(get_params(a_p.shape)) for a_p in self.a_params]
-        self.c_params = self.critic.trainable_variables
-        [c_p.assign(get_params(c_p.shape)) for c_p in self.c_params]
+    # def init_params(self):
+    #     all_params = np.random.uniform(-0.1, 0.1, 400)
+    #     # print("***** all_params *****")
+    #     # print("sum: %.5f, head: %.5f, end: %.5f" % (np.sum(all_params), all_params[0], all_params[1]))
+    #     # print("***** all_params - end *****")
+    #     all_params = tf.convert_to_tensor(all_params, tf.float32)
+    #     def get_params(shape):
+    #         num = 1
+    #         for d in shape:
+    #             num *= d
+    #         return tf.reshape(all_params[:num], shape)
+    #     self.a_params = self.actor.trainable_variables
+    #     [a_p.assign(get_params(a_p.shape)) for a_p in self.a_params]
+    #     self.c_params = self.critic.trainable_variables
+    #     [c_p.assign(get_params(c_p.shape)) for c_p in self.c_params]
         
     
     @tf.function
@@ -200,14 +200,9 @@ class AgentContinuousAction:
         mean, std = self.actor(state) # (1, action_dim)
         norm_dist = tfp.distributions.Normal(loc=mean, scale=std)
         action = norm_dist.sample(seed=SEED) # (1, action_dim)
-        
         action = tf.clip_by_value(action, -self.action_bound, self.action_bound)
-        
         prob = norm_dist.prob(action) # (1,)
         action, prob = tf.squeeze(action, axis=0), tf.squeeze(prob, axis=0) # (action_dim, )  scalar
-        
-        # print("state: ", state[0].numpy())
-        # print("mean: %.5f, std: %.5f, action: %.5f" %(mean.numpy(), std.numpy(), action.numpy()[0]))
         return action, prob
     
     def store_transition(self, state, action, reward, prob):
@@ -225,37 +220,15 @@ class AgentContinuousAction:
          return_buffer,
          probability_buffer,
         ) = self.buffer.get()
-        
-        
-        state_value_buffer = self.critic(state_buffer).numpy()
-        advantage_buffer = return_buffer - state_value_buffer
-        advantage_mean, advantage_std = (
-            np.mean(advantage_buffer),
-            np.std(advantage_buffer),
-        )
-        advantage_buffer = (advantage_buffer - advantage_mean) / (advantage_std + EPS)
-        
-        
-        # print("***** s a adv r p *****")
-        # print(state_buffer[:3])
-        # print(action_buffer[3:6])
-        # print(advantage_buffer[88:96])
-        # print(return_buffer[66:69])
-        # print(state_value_buffer[:3])
-        # print(probability_buffer[100:103])
-        # exit(0)
-        
-        
         # Update the policy and implement early stopping using KL divergence
         for _ in range(self.actor_learn_iterations):
             kl = self._actor_learn(state_buffer,
                                    action_buffer,
                                    probability_buffer,
                                    advantage_buffer)
-            # if kl > 1.5 * self.target_kl:
-            #     # Early Stopping
-            #     print("Early Stopping")
-            #     break
+            if kl > 1.5 * self.target_kl:
+                # Early Stopping
+                break
 
         # Update the value function
         for _ in range(self.critic_learn_iterations):
@@ -274,13 +247,6 @@ class AgentContinuousAction:
             ) # (None, )
             cost = tf.minimum(ratio * advantage_buffer, min_advantage) # (None, )
             loss = -tf.reduce_mean(cost) # scalar
-        # cost = cost.numpy()
-        # print(loss.numpy())
-        # print(ratio.numpy()[88:96])
-        # print(cost[88:96])
-        # print(min_advantage.numpy()[88:96])
-        # print(cost.shape)
-        # exit(0)
         grads = tape.gradient(loss, self.actor.trainable_variables)
         self.actor_opt.apply_gradients(zip(grads, self.actor.trainable_variables))
 

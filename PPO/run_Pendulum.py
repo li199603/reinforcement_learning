@@ -18,8 +18,8 @@ parser.add_argument("--lam", type=float, default=1)
 parser.add_argument("--clip_ratio", type=float, default=0.2)
 parser.add_argument("--actor_lr", type=float, default=0.0001)
 parser.add_argument("--critic_lr", type=float, default=0.0002)
-parser.add_argument("--actor_learn_iterations", type=int, default=10)
-parser.add_argument("--critic_learn_iterations", type=int, default=10)
+parser.add_argument("--actor_learn_iterations", type=int, default=80)
+parser.add_argument("--critic_learn_iterations", type=int, default=80)
 parser.add_argument("--target_kl", type=float, default=0.01)
 parser.add_argument("--render", action="store_true")
 parser.add_argument("--ep_len", type=int, default=128)
@@ -66,18 +66,13 @@ def run():
 
         # Iterate over the steps of each epoch
         for t in range(args.steps_per_epoch):
-            # print("****** %d ******" % t)
-            if epoch % 100 == 1:
+            if epoch % 100 == 1 or epoch >= args.epochs - 10:
                 env.render()
-
             # Get the logits, action, and take one step in the environment
-            action, logprob = agent.policy(state)
-            action, logprob = action.numpy(), logprob.numpy()
+            action, prob = agent.policy(state)
+            action, prob = action.numpy(), prob.numpy()
             next_state, reward, _, _ = env.step(action)
-            # print("reward: %.5f" % reward)
-            agent.store_transition(state, action, (reward+8)/8, logprob)
-            # if epoch == 1 and t == 4:
-            #     exit(0)
+            agent.store_transition(state, action, (reward+8)/8, prob)
             state = next_state
             episode_return += reward
             episode_length += 1
