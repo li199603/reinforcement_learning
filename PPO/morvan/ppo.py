@@ -23,8 +23,8 @@ GAMMA = 0.9
 A_LR = 0.0001
 C_LR = 0.0002
 BATCH = 128
-A_UPDATE_STEPS = 1
-C_UPDATE_STEPS = 1
+A_UPDATE_STEPS = 10
+C_UPDATE_STEPS = 10
 S_DIM, A_DIM = 3, 1
 SEED = 7
 EPS = 1e-8
@@ -112,12 +112,12 @@ class PPO(object):
         adv, v = self.sess.run([self.advantage, self.v], {self.tfs: s, self.tfdc_r: r})
         adv = (adv - adv.mean())/(adv.std())     # sometimes helpful
         
-        # print("***** s a adv r p *****")
+        # print("***** s a adv r*****")
         print(s[:3])
         print(a[3:6])
         print(adv[88:96])
         print(r[66:69])
-        print(v[:3])
+        # print(v[:3])
         # exit(0)
 
         # update actor
@@ -140,10 +140,7 @@ class PPO(object):
             print(loss)
             print(rartio[88:96])
             print(cost[88:96])
-            print(min_advantage[88:96])
-            print(len(cost))
-            print(np.sum(adv) / 128)
-            exit(0)
+            # exit(0)
             [self.sess.run(self.atrain_op, {self.tfs: s, self.tfa: a, self.tfadv: adv}) for _ in range(A_UPDATE_STEPS)]
 
             
@@ -187,7 +184,7 @@ for ep in range(EP_MAX):
         a = ppo.choose_action(s)
         s_, r, done, _ = env.step(a)
         print("reward: %.5f" % r)
-        if ep == 1 and t == 4:
+        if ep == 10 and t == 4:
                 exit(0)
         buffer_s.append(s)
         buffer_a.append(a)

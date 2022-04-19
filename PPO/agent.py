@@ -179,9 +179,9 @@ class AgentContinuousAction:
         
     # def init_params(self):
     #     all_params = np.random.uniform(-0.1, 0.1, 400)
-    #     # print("***** all_params *****")
-    #     # print("sum: %.5f, head: %.5f, end: %.5f" % (np.sum(all_params), all_params[0], all_params[1]))
-    #     # print("***** all_params - end *****")
+    #     print("***** all_params *****")
+    #     print("sum: %.5f, head: %.5f, end: %.5f" % (np.sum(all_params), all_params[0], all_params[1]))
+    #     print("***** all_params - end *****")
     #     all_params = tf.convert_to_tensor(all_params, tf.float32)
     #     def get_params(shape):
     #         num = 1
@@ -203,6 +203,8 @@ class AgentContinuousAction:
         action = tf.clip_by_value(action, -self.action_bound, self.action_bound)
         prob = norm_dist.prob(action) # (1,)
         action, prob = tf.squeeze(action, axis=0), tf.squeeze(prob, axis=0) # (action_dim, )  scalar
+        # print("state: ", state[0].numpy())
+        # print("mean: %.5f, std: %.5f, action: %.5f" %(mean.numpy(), std.numpy(), action.numpy()))
         return action, prob
     
     def store_transition(self, state, action, reward, prob):
@@ -236,6 +238,12 @@ class AgentContinuousAction:
     
     @tf.function
     def _actor_learn(self, state_buffer, action_buffer, probability_buffer, advantage_buffer):
+        # print("***** s a adv *****")
+        # print(state_buffer[:3])
+        # print(action_buffer[3:6])
+        # print(advantage_buffer[88:96])
+        
+        
         with tf.GradientTape() as tape:  # Record operations for automatic differentiation.
             mean, std = self.actor(state_buffer)
             prob = self._get_probabilities(mean, std, action_buffer)
@@ -255,6 +263,12 @@ class AgentContinuousAction:
         kl = tf.reduce_mean(
             tf.math.log(probability_buffer) - tf.math.log(prob)
         )
+        
+        # print(loss.numpy())
+        # print(ratio.numpy()[88:96])
+        # print(cost.numpy()[88:96])
+        # exit(0)
+        
         return kl
     
     @tf.function
