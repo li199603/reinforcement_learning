@@ -34,9 +34,6 @@ def run():
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.shape[0]
     action_bound = env.action_space.high
-    
-    # dir_name = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) 
-    # summary_writer = SummaryWriter("PPO/summary/" + dir_name)
 
     # Initialize the Agent
     agent = AgentContinuousAction(state_dim,
@@ -66,20 +63,16 @@ def run():
 
         # Iterate over the steps of each epoch
         for t in range(args.steps_per_epoch):
-            # print("****** %d ******" % t)
             if epoch % 100 == 1 or epoch >= args.epochs - 10:
                 env.render()
             # Get the logits, action, and take one step in the environment
             action, prob = agent.policy(state)
             action, prob = action.numpy(), prob.numpy()
             next_state, reward, _, _ = env.step(action)
-            # print("reward: %.5f" % reward)
             agent.store_transition(state, action, (reward+8)/8, prob)
             state = next_state
             episode_return += reward
             episode_length += 1
-            # if epoch == 10 and t == 4:
-            #     exit(0)
             
             if (t == args.steps_per_epoch - 1):
                 state_tensor = tf.reshape(state, (1, state_dim))
